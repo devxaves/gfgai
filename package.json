@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.44.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.3.0",
@@ -21,6 +21,7 @@
     "papaparse": "^5.5.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-resizable-panels": "^4.7.1",
     "recharts": "^3.8.0",
     "shadcn": "^4.0.0",
     "tailwind-merge": "^3.5.0",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
