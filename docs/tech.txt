@@ -1,0 +1,495 @@
+Tech Rules & Technology Stack Definition
+Conversational AI for Instant Business Intelligence Dashboards
+1. Purpose of This Document
+
+This document defines the technical rules, architecture standards, and technology stack that must be followed throughout the development of the Conversational AI Business Intelligence Dashboard system.
+
+The objective is to ensure:
+
+Consistency across the codebase
+
+Compatibility between components
+
+Maintainability and scalability
+
+High performance in browser environments
+
+Secure integration with AI services and databases
+
+All contributors must follow these technical guidelines when implementing features.
+
+2. Core Technology Stack
+
+The project follows a modern JavaScript full-stack architecture built around Next.js.
+
+Layer	Technology
+Frontend Framework	Next.js (React)
+Language	TypeScript
+Styling	Tailwind CSS
+UI Components	shadcn/ui
+State Management	Zustand
+API Layer	Next.js API Routes
+AI Integration	Google Gemini API (via REST)
+Database	MongoDB Atlas
+Local Browser Storage	IndexedDB
+Data Querying	MongoDB Aggregation Pipeline
+Charts & Visualization	Recharts / Chart.js
+Deployment	Vercel
+Package Manager	npm / pnpm
+3. Architecture Principles
+
+The system will follow a browser-first, API-driven architecture.
+
+Key Principles
+
+Frontend and backend exist within the Next.js full-stack environment.
+
+AI functionality is accessed only through external APIs.
+
+Data queries are executed through MongoDB aggregation pipelines.
+
+User-uploaded data is handled in the browser using IndexedDB.
+
+Chart rendering occurs entirely on the client side.
+
+4. Frontend Technology Rules
+4.1 Framework
+
+Frontend must be built using:
+
+Next.js (App Router)
+
+Required features:
+
+Server Components
+
+Client Components
+
+API routes
+
+Optimized routing
+
+4.2 Language
+
+All code must be written in:
+
+TypeScript
+
+Rules:
+
+No plain JavaScript files except configuration files
+
+All API responses must use defined interfaces
+
+Strong typing must be used for:
+
+API responses
+
+data models
+
+chart configurations
+
+4.3 Styling
+
+Styling must use:
+
+Tailwind CSS
+
+Guidelines:
+
+No inline CSS
+
+No CSS frameworks other than Tailwind
+
+Prefer utility-first classes
+
+Use responsive design patterns
+
+Example:
+
+className="flex items-center justify-between p-4 rounded-xl shadow-md"
+4.4 UI Component System
+
+UI components must use:
+
+shadcn/ui
+
+Allowed components include:
+
+Buttons
+
+Dialogs
+
+Input fields
+
+Cards
+
+Tables
+
+Dropdown menus
+
+Custom components must follow the same styling pattern.
+
+5. Backend Technology Rules
+5.1 Backend Framework
+
+Backend logic must run inside:
+
+Next.js API Routes
+
+Example structure:
+
+/app/api/analyze-query/route.ts
+/app/api/run-query/route.ts
+/app/api/upload-data/route.ts
+5.2 API Communication
+
+All frontend-backend communication must use:
+
+REST APIs
+
+Rules:
+
+JSON request/response format
+
+HTTP status codes must be used properly
+
+Error responses must follow consistent structure
+
+Example response format:
+
+{
+  success: true,
+  data: {},
+  message: "Query executed successfully"
+}
+6. AI Integration Rules
+6.1 AI Model Provider
+
+AI services must be accessed through APIs.
+
+Primary provider:
+
+Google Gemini API
+
+Fallback options:
+
+OpenAI API
+
+Anthropic API
+
+6.2 AI Usage Scope
+
+AI is responsible for:
+
+Query interpretation
+
+Chart recommendation
+
+Structured data instructions
+
+AI must NOT:
+
+Access database directly
+
+Execute queries
+
+Generate raw executable code
+
+6.3 AI Prompt Engineering
+
+All prompts must include:
+
+Dataset schema
+
+User request
+
+Expected output format
+
+Example output format:
+
+{
+ metric: "revenue",
+ dimension: "region",
+ chartType: "bar",
+ filters: ["2024"]
+}
+7. Database Technology Rules
+7.1 Primary Database
+
+The primary database must be:
+
+MongoDB Atlas
+
+Benefits:
+
+Flexible document structure
+
+Easy aggregation queries
+
+Cloud scalability
+
+7.2 Database Library
+
+Backend must interact with MongoDB using:
+
+Mongoose
+
+Responsibilities:
+
+Schema validation
+
+Query abstraction
+
+Data modeling
+
+7.3 Data Schema Rules
+
+All collections must include:
+
+timestamps
+
+consistent naming conventions
+
+indexed fields for performance
+
+Example schema:
+
+sales
+{
+ product: string
+ region: string
+ revenue: number
+ date: string
+}
+8. Local Browser Database Rules
+
+User-uploaded datasets must be handled locally using:
+
+IndexedDB
+
+Library recommended:
+
+Dexie.js
+
+Purpose:
+
+Temporary dataset storage
+
+Offline dataset querying
+
+Client-side analytics
+
+9. Data Query Rules
+
+All queries must be implemented using:
+
+MongoDB Aggregation Pipeline
+
+Example:
+
+db.sales.aggregate([
+ { $match: { year: 2024 }},
+ { $group: { _id: "$region", revenue: { $sum: "$revenue" }}}
+])
+
+Rules:
+
+No raw database access from frontend
+
+All queries pass through API layer
+
+10. Charting & Visualization Rules
+
+Charts must use one of the following libraries:
+
+Primary:
+
+Recharts
+
+Secondary options:
+
+Chart.js
+
+Plotly
+
+Chart Interaction Requirements
+
+Charts must support:
+
+hover tooltips
+
+legend toggling
+
+filtering
+
+zoom (if applicable)
+
+11. State Management Rules
+
+Application state must be managed using:
+
+Zustand
+
+Used for:
+
+dashboard state
+
+user query history
+
+chart configurations
+
+Example store:
+
+useDashboardStore
+12. File Structure Standards
+
+Project must follow this structure:
+
+/app
+   /dashboard
+   /upload
+   /api
+
+/components
+   /charts
+   /ui
+   /dashboard
+
+/lib
+   ai
+   mongodb
+   query-builder
+
+/types
+   chartTypes.ts
+   queryTypes.ts
+
+/utils
+   parser
+   validators
+13. Security Rules
+
+Security requirements:
+
+No database credentials exposed on frontend
+
+All secrets stored in environment variables
+
+Validate AI-generated queries
+
+Prevent injection attacks
+
+Environment variables must be stored in:
+
+.env.local
+14. Performance Rules
+
+To maintain performance:
+
+Use server-side caching where possible
+
+Limit dataset size for browser uploads
+
+Lazy-load charts
+
+Use optimized API responses
+
+Target performance:
+
+Action	Time Limit
+Dashboard generation	< 5 seconds
+Query response	< 2 seconds
+15. Deployment Rules
+
+Deployment platform:
+
+Vercel
+
+Rules:
+
+Automatic CI/CD via GitHub
+
+Environment variables configured in Vercel
+
+Production builds must pass TypeScript checks
+
+16. Logging & Monitoring
+
+Error tracking should include:
+
+API errors
+
+AI failures
+
+database query errors
+
+Optional tools:
+
+Sentry
+
+LogRocket
+
+17. Code Quality Rules
+
+Code must follow:
+
+ESLint
+
+Prettier
+
+Rules:
+
+Consistent formatting
+
+No unused variables
+
+No console logs in production
+
+18. Version Control Rules
+
+Repository must use:
+
+Git + GitHub
+
+Branch strategy:
+
+main
+development
+feature/*
+
+Pull requests must include:
+
+description
+
+screenshots
+
+testing notes
+
+19. Scalability Considerations
+
+The architecture must support future features such as:
+
+multiple datasets
+
+multi-user dashboards
+
+team collaboration
+
+real-time analytics
+
+20. Documentation Rules
+
+Project must include documentation for:
+
+setup instructions
+
+API endpoints
+
+dataset schema
+
+prompt engineering strategy
+
+Documentation location:
+
+/docs

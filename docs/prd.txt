@@ -1,0 +1,574 @@
+Product Requirement Document (PRD)
+Conversational AI for Instant Business Intelligence Dashboards
+1. Product Overview
+1.1 Product Name
+
+InsightAI – Conversational Business Intelligence Dashboard Generator
+
+1.2 Vision
+
+Enable business users to generate interactive dashboards instantly through natural language queries without requiring SQL knowledge or complex Business Intelligence tools.
+
+1.3 Mission
+
+Transform data analysis into a conversation-driven experience, allowing executives and decision-makers to gain insights from datasets within seconds.
+
+2. Problem Statement
+
+Modern organizations collect large amounts of data, but accessing insights still requires technical expertise such as:
+
+SQL queries
+
+Data engineering support
+
+BI tools like Tableau or PowerBI
+
+This creates bottlenecks where:
+
+Data teams are overloaded with simple reporting tasks
+
+Business users must wait hours or days for insights
+
+Decision-making slows down due to lack of accessible data analysis tools
+
+Example scenario:
+
+A CXO wants to know:
+
+"Show me monthly sales revenue for Q3 broken down by region and highlight the top-performing product category."
+
+Currently this requires:
+
+Writing SQL queries
+
+Exporting data
+
+Creating dashboards manually
+
+Our system will allow users to simply type the request, and the system will:
+
+Interpret the request
+
+Fetch the correct data
+
+Choose the best chart types
+
+Render a dashboard instantly.
+
+3. Product Goals
+Primary Goals
+
+Enable natural language querying of business datasets
+
+Automatically generate interactive dashboards
+
+Provide real-time visual insights
+
+Remove dependency on technical data teams
+
+Allow users to explore data through conversational interactions
+
+4. Success Metrics
+Metric	Target
+Dashboard generation time	< 5 seconds
+Query interpretation accuracy	> 85%
+User satisfaction	> 4/5
+Chart relevance	> 90%
+5. Target Persona
+Non-Technical Executive (CXO)
+Profile
+
+Typical users include:
+
+CEOs
+
+COOs
+
+Marketing Heads
+
+Sales Directors
+
+Business Managers
+
+User Characteristics
+
+They:
+
+Understand business questions
+
+Do not know SQL
+
+Prefer visual insights
+
+Need quick answers for decision-making
+
+6. Product Features
+6.1 Natural Language Query Interface
+
+Users interact with the system through a simple text input interface.
+
+Example query:
+
+Show me monthly revenue trends for 2024 by region
+
+The system processes this request and generates a dashboard automatically.
+
+6.2 LLM-Powered Query Understanding
+
+An external LLM API (Google Gemini / OpenAI / similar) interprets user prompts.
+
+The model will:
+
+Identify metrics
+
+Identify dimensions
+
+Determine filters
+
+Generate structured query instructions
+
+Example structured output:
+
+{
+  metric: "revenue",
+  dimension: "region",
+  time: "monthly",
+  filter: "2024"
+}
+6.3 Query Builder Engine
+
+Instead of raw SQL generation, the system will convert the structured output into a query builder format compatible with MongoDB or local data storage.
+
+Example query object:
+
+{
+  collection: "sales",
+  groupBy: ["region","month"],
+  metrics: ["sum(revenue)"]
+}
+
+This prevents unsafe or incorrect queries.
+
+6.4 Dynamic Data Retrieval
+
+The backend retrieves data using:
+
+Primary Database
+
+MongoDB
+
+Libraries used:
+
+MongoDB Node Driver
+
+Mongoose
+
+Local Dataset Support
+
+Users can upload datasets which will be:
+
+Parsed in the browser
+
+Stored temporarily in IndexedDB / LocalStorage
+
+Queried using in-browser JavaScript logic.
+
+6.5 Intelligent Chart Selection
+
+The system automatically selects chart types based on data structure.
+
+Data Type	Chart
+Time series	Line Chart
+Category comparison	Bar Chart
+Parts of whole	Pie Chart
+Multi-variable comparison	Stacked Bar
+Distribution	Histogram
+
+The LLM suggests chart type while the frontend validates it.
+
+6.6 Dynamic Dashboard Generator
+
+After data retrieval, the system generates a dashboard composed of multiple charts.
+
+Dashboard elements include:
+
+Chart title
+
+Axis labels
+
+Legends
+
+Tooltips
+
+Data labels
+
+All charts are rendered dynamically.
+
+6.7 Interactive Data Visualization
+
+Charts support real-time interactions:
+
+Hover tooltips
+
+Filtering
+
+Highlighting
+
+Zoom
+
+Drill-down exploration
+
+Visualization libraries may include:
+
+Recharts
+
+Chart.js
+
+Plotly
+
+D3.js
+
+6.8 Chat With Dashboard
+
+Users can modify dashboards via conversation.
+
+Example flow:
+
+User:
+
+Show revenue by region
+
+System generates dashboard.
+
+User follow-up:
+
+Now filter it to only show the East region
+
+The system updates the dashboard accordingly.
+
+6.9 CSV Data Upload (Bonus Feature)
+
+Users can upload datasets.
+
+Supported formats:
+
+CSV
+
+JSON
+
+Workflow:
+
+User uploads file
+
+File parsed in browser
+
+Data stored in IndexedDB
+
+Dataset schema generated automatically
+
+User can immediately query the dataset.
+
+Example prompt:
+
+Compare sales across product categories
+7. User Flow
+Step 1 — User Opens Web Application
+
+Landing page contains:
+
+Prompt input box
+
+Example queries
+
+Dataset upload option
+
+Dashboard workspace
+
+Step 2 — User Inputs Query
+
+Example:
+
+Show sales growth for 2024
+Step 3 — Query Sent to API
+
+Frontend sends request to:
+
+/api/analyze-query
+Step 4 — LLM Processing
+
+Backend sends prompt to LLM API.
+
+The model returns:
+
+metrics
+
+filters
+
+dimensions
+
+chart recommendations
+
+Step 5 — Query Execution
+
+Backend converts the output to a MongoDB aggregation query.
+
+Example:
+
+db.sales.aggregate([
+ { $match: { year: 2024 }},
+ { $group: { _id: "$month", revenue: { $sum: "$revenue" }}}
+])
+Step 6 — Data Returned
+
+Data returned to frontend via API.
+
+Step 7 — Chart Rendering
+
+Charts rendered dynamically using visualization libraries.
+
+8. System Architecture
+User Browser
+   │
+   ▼
+Next.js Frontend
+   │
+   ▼
+Next.js API Routes
+   │
+   ▼
+LLM API (Gemini / OpenAI)
+   │
+   ▼
+Query Builder
+   │
+   ▼
+MongoDB Database
+   │
+   ▼
+Data Returned
+   │
+   ▼
+Chart Rendering Engine
+   │
+   ▼
+Interactive Dashboard
+9. Technology Stack
+Frontend
+
+Framework:
+
+Next.js (App Router)
+
+UI Framework:
+
+Tailwind CSS
+
+Additional libraries:
+
+shadcn/ui
+
+React Query
+
+Zustand (state management)
+
+Backend
+
+Server Environment:
+
+Next.js API Routes
+
+Language:
+
+Node.js / TypeScript
+
+LLM Integration
+
+LLM accessed through API:
+
+Google Gemini API
+
+OpenAI API
+
+Other cloud AI APIs
+
+Database
+
+Primary:
+
+MongoDB Atlas
+
+Libraries:
+
+mongoose
+
+mongodb driver
+
+Local Browser Database
+
+For uploaded files:
+
+IndexedDB
+
+Dexie.js
+
+Visualization Libraries
+
+Recharts
+
+Chart.js
+
+Plotly
+
+10. Functional Requirements
+ID	Requirement
+FR1	Accept natural language prompts
+FR2	Send prompts to LLM API
+FR3	Convert response to query structure
+FR4	Query MongoDB
+FR5	Render dynamic charts
+FR6	Allow interactive chart controls
+FR7	Support dataset upload
+FR8	Enable conversational dashboard updates
+11. Non-Functional Requirements
+Category	Requirement
+Performance	Dashboard generation under 5 seconds
+Scalability	Support multiple users
+Security	Prevent unsafe queries
+Reliability	Graceful error handling
+Usability	Intuitive user interface
+12. Error Handling
+
+The system must handle:
+
+Ambiguous Prompts
+
+Example:
+
+Show sales
+
+System response:
+
+Please specify timeframe or category.
+Missing Fields
+
+Example:
+
+Show profit margin
+
+If dataset lacks that column:
+
+Profit margin data not found in dataset.
+Invalid Query Prevention
+
+Queries generated by LLM must be validated against:
+
+dataset schema
+
+allowed fields
+
+query limits
+
+13. Prompt Engineering Strategy
+
+System prompt example:
+
+You are a data analyst.
+
+Given a user query and dataset schema,
+return a structured query object with:
+
+- metric
+- dimension
+- filters
+- chartType
+
+Only use fields present in the schema.
+Do not invent fields.
+14. Evaluation Framework
+Accuracy (40%)
+
+Measured by:
+
+Correct data retrieval
+
+Correct chart selection
+
+Accurate interpretation of prompts
+
+UX & Aesthetics (30%)
+
+Measured by:
+
+Visual clarity
+
+Modern UI design
+
+Interactive charts
+
+Architecture & Innovation (30%)
+
+Measured by:
+
+Robust LLM pipeline
+
+Query validation system
+
+Data upload flexibility
+
+15. Prototype Demonstration
+
+The prototype must answer at least three progressively complex queries.
+
+Query 1 — Simple
+Show total revenue by region
+Query 2 — Moderate
+Compare product category sales for 2024
+Query 3 — Complex
+Show monthly sales revenue for Q3 broken down by region and highlight the top-performing product category
+16. Deliverables
+
+The final submission must include:
+
+Working Web Application
+
+Deployed on:
+
+Vercel
+
+Netlify
+
+Public GitHub Repository
+
+Repository includes:
+
+Source code
+
+Setup instructions
+
+Architecture overview
+
+10-Minute Presentation
+
+Presentation includes:
+
+Problem overview
+
+Architecture explanation
+
+Live demonstration
+
+Example queries
+
+17. Future Enhancements
+
+Possible upgrades include:
+
+Voice-based queries
+
+AI-generated insights
+
+Predictive analytics
+
+Slack / Teams integration
+
+Multi-database support

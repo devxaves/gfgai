@@ -1,0 +1,434 @@
+Design Principles
+
+The UI is guided by five design principles.
+
+1. Clarity First
+
+Executives should understand insights within seconds.
+
+2. Conversational Analytics
+
+The query interface should feel like chatting with an AI assistant.
+
+3. Data Visualization Focus
+
+Charts should dominate the interface while controls remain minimal.
+
+4. Modular Dashboard
+
+All dashboard components should be dynamic cards.
+
+5. Calm Enterprise UI
+
+Minimal colors, soft shadows, and clear typography.
+
+3. Design System
+3.1 Color Palette
+
+Inspired by HubSpot CRM dashboards.
+
+Color	Usage
+Primary Blue	Main actions & highlights
+Light Gray	Background
+Dark Gray	Text
+Soft Orange	Key metrics highlight
+Green	Positive trends
+
+Example palette:
+
+Primary: #2563EB
+Background: #F8FAFC
+Card: #FFFFFF
+Border: #E5E7EB
+Text: #1F2937
+Success: #10B981
+Warning: #F59E0B
+3.2 Typography
+
+Font Family:
+
+Inter
+
+Hierarchy:
+
+Element	Size
+Page title	28px
+Section title	20px
+Card title	16px
+Body text	14px
+Labels	12px
+3.3 Spacing System
+
+Spacing uses a 4px grid system.
+
+Examples:
+
+Space	Size
+Small	4px
+Medium	8px
+Large	16px
+Extra large	24px
+4. Layout Structure
+
+The application uses a three-zone layout.
+
+------------------------------------------
+Sidebar Navigation | Dashboard Workspace
+------------------------------------------
+                Query Bar
+------------------------------------------
+              Chart Cards
+------------------------------------------
+5. Core Screens
+5.1 Landing / Query Screen
+
+Purpose:
+
+Allow users to ask questions about their data.
+
+Layout
+-----------------------------------
+Logo        Upload Data
+-----------------------------------
+
+        Ask InsightAI
+
+[ Show me revenue by region ]
+
+Example queries below
+
+-----------------------------------
+Components
+
+Query input box
+
+Example prompts
+
+Upload dataset button
+
+AI assistant icon
+
+5.2 AI Query Interface
+
+This is the primary interaction interface.
+
+Layout
+---------------------------------------
+Query Input Bar
+---------------------------------------
+
+User Prompt
+AI Processing Animation
+Dashboard Results
+Interaction Flow
+
+User types prompt
+
+AI analyzes query
+
+Dashboard generates
+
+Loading state includes AI thinking animation.
+
+5.3 Dashboard Workspace
+
+Inspired directly by the HubSpot analytics dashboard layout.
+
+Layout
+-----------------------------------------------------
+Sidebar | Query Bar
+-----------------------------------------------------
+
+ KPI Cards
+
+ Revenue | Sales | Growth | Customers
+
+-----------------------------------------------------
+
+ Charts Grid
+
+ Revenue Chart
+ Region Breakdown
+
+ Product Categories
+ Sales Trend
+
+-----------------------------------------------------
+6. Sidebar Navigation
+
+Sidebar contains navigation items.
+
+Dashboard
+Data Sources
+Query History
+Insights
+Settings
+
+Icons should be minimal and outlined.
+
+7. Dashboard Card System
+
+All analytics modules appear as cards.
+
+Card design inspired by HubSpot CRM.
+
+Card Structure
+---------------------------------
+Title
+Subtitle
+
+Chart / Metric
+
+Legend
+---------------------------------
+
+Card properties:
+
+rounded corners
+
+subtle shadows
+
+hover elevation
+
+8. KPI Cards
+
+Used for quick executive insights.
+
+Example metrics:
+
+Total Revenue
+
+Sales Growth
+
+Top Region
+
+Best Product Category
+
+Example design:
+
+--------------------------
+Revenue
+$1.2M
+
++12% growth
+--------------------------
+9. Chart Grid System
+
+Charts appear in responsive grid layout.
+
+Desktop layout:
+
+| Chart | Chart |
+| Chart | Chart |
+
+Mobile layout:
+
+| Chart |
+| Chart |
+| Chart |
+10. Chart Types
+
+Supported visualizations include:
+
+Line Chart
+
+For trends over time.
+
+Example:
+
+Monthly revenue growth.
+
+Bar Chart
+
+For category comparisons.
+
+Example:
+
+Revenue by region.
+
+Pie Chart
+
+For parts-of-whole.
+
+Example:
+
+Sales distribution.
+
+Stacked Bar
+
+For multi-category comparisons.
+
+Example:
+
+Product sales by region.
+
+11. Conversational Dashboard Interaction
+
+Users can modify dashboards via chat.
+
+Example interaction:
+
+User:
+
+Show revenue by region
+
+Dashboard appears.
+
+User follow-up:
+
+Filter to East region
+
+Dashboard updates instantly.
+
+12. Dataset Upload Screen
+
+Users can upload data sources.
+
+Supported formats:
+
+CSV
+
+JSON
+
+Layout:
+
+---------------------------
+Upload Dataset
+
+Drag and Drop File
+
+Supported:
+CSV / JSON
+---------------------------
+13. Loading States
+
+During AI processing:
+
+Skeleton Loader
+
+Cards appear with placeholders.
+
+AI Thinking Animation
+
+Example:
+
+Analyzing your data...
+Generating charts...
+14. Error States
+
+Error messages should be clear.
+
+Example:
+
+We couldn't find the "profit margin" field in your dataset.
+Try another query.
+15. Interaction Design
+Hover States
+
+Cards slightly elevate.
+
+Chart Interaction
+
+tooltip on hover
+
+legend toggle
+
+zoom capability
+
+Query Suggestions
+
+AI suggests next queries.
+
+Example:
+
+Try asking:
+• Show revenue by product
+• Compare regions
+16. Responsive Design
+
+The interface must support:
+
+Desktop
+
+Primary dashboard experience.
+
+Tablet
+
+Charts stacked in 2 columns.
+
+Mobile
+
+Single column layout.
+
+17. Animation & Microinteractions
+
+Animations improve user experience.
+
+Recommended library:
+
+Framer Motion
+
+Examples:
+
+card fade-in
+
+chart loading animation
+
+sidebar transitions
+
+18. Accessibility
+
+Design must support:
+
+readable contrast ratios
+
+keyboard navigation
+
+screen reader compatibility
+
+19. Frontend Implementation Mapping
+UI Element	Implementation
+Dashboard layout	Next.js + Tailwind
+Cards	shadcn/ui
+Charts	Recharts
+State management	Zustand
+Animations	Framer Motion
+20. Wireframe (Simplified)
+-----------------------------------------------------
+Sidebar | Query Bar
+-----------------------------------------------------
+
+[Revenue] [Customers] [Growth] [Top Product]
+
+-----------------------------------------------------
+
+[Revenue Trend Chart] [Region Sales]
+
+[Category Sales]     [Monthly Growth]
+
+-----------------------------------------------------
+21. Future UI Enhancements
+
+Potential upgrades include:
+
+Voice query interface
+
+AI insight summaries
+
+Collaborative dashboards
+
+Dark mode analytics theme
+
+22. Design Deliverables
+
+The design phase must produce:
+
+High-fidelity UI mockups
+
+Dashboard layout wireframes
+
+Component design system
+
+Responsive design layouts
+
+Interaction specifications
