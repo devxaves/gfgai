@@ -1,7 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 
-// The client automatically picks up the API key from process.env.GEMINI_API_KEY
-// Assuming it is available in the Node environment
+let client: GoogleGenAI | null = null;
+
 export const getGeminiClient = () => {
-  return new GoogleGenAI({});
+  if (client) return client;
+
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "Missing GOOGLE_GEMINI_API_KEY environment variable. " +
+      "Get your key from https://aistudio.google.com/apikey and add it to .env"
+    );
+  }
+
+  client = new GoogleGenAI({ apiKey });
+  return client;
 };

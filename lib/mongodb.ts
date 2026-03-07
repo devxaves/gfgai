@@ -2,30 +2,40 @@ import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
-
 let cached = (global as any).mongoose;
 
 if (!cached) {
   cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
+export function isMongoConfigured(): boolean {
+  return !!MONGODB_URI && MONGODB_URI.trim().length > 0;
+}
+
 async function connectToDatabase() {
+  if (!isMongoConfigured()) {
+    console.warn(
+      '[InsightAI] MONGODB_URI not set — running in local-only mode. ' +
+      'Upload a CSV to get started, or add MONGODB_URI to .env for database mode.'
+    );
+    return null;
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
 
   if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
-    });
+    cached.promise = mongoose
+      .connect(MONGODB_URI!, { bufferCommands: false })
+      .then((m) => m)
+      .catch((err) => {
+        console.error('[InsightAI] MongoDB connection failed:', err.message);
+        cached.promise = null;
+        return null;
+      });
   }
+
   cached.conn = await cached.promise;
   return cached.conn;
 }

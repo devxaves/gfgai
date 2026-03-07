@@ -5,7 +5,8 @@ const SalesSchema = new mongoose.Schema({
   region: { type: String, required: true },
   revenue: { type: Number, required: true },
   cost: { type: Number, required: true },
-  date: { type: Date, required: true }
+  date: { type: Date, required: true },
+  category: { type: String },
 }, { timestamps: true });
 
 export default mongoose.models.Sales || mongoose.model('Sales', SalesSchema);

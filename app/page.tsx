@@ -5,24 +5,24 @@ import { DatasetUploader } from "@/components/dashboard/DatasetUploader";
 
 export default function Home() {
   return (
-    <div className="flex h-screen w-full bg-slate-50">
+    <div className="flex h-screen w-full bg-slate-50 dark:bg-gray-950">
       <Sidebar />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        
-        <header className="h-[72px] border-b bg-white flex items-center px-6 shrink-0 shadow-sm z-10">
-          <div className="flex-1 flex justify-center lg:justify-start lg:pl-10">
+        <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl flex items-center px-4 lg:px-6 shrink-0 z-10 gap-3">
+          <div className="w-10 lg:hidden" />
+          <div className="flex-1 flex justify-center">
             <QueryInput />
           </div>
-          <div className="flex items-center space-x-4 pl-4">
+          <div className="flex items-center gap-2 shrink-0">
             <DatasetUploader />
-            <div className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold border-2 border-white ring-2 ring-gray-100 shadow-sm">
-              CX
+            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-white text-[11px] font-bold shadow-sm">
+              AI
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 bg-slate-50/50">
+        <main className="flex-1 overflow-auto p-4 lg:p-6">
           <Workspace />
         </main>
       </div>
