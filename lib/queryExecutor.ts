@@ -232,7 +232,7 @@ export function executeQuery(query: QueryPlan, data?: SalesRecord[]): QueryResul
       if (aggFn === 'count') {
         groups[key].push(1);
       } else {
-        const val = Number((row as Record<string, unknown>)[aggCol]);
+        const val = Number((row as unknown as Record<string, unknown>)[aggCol]);
         if (!isNaN(val)) groups[key].push(val);
       }
     });
