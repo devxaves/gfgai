@@ -18,6 +18,7 @@ export interface SalesRecord {
   cost: number;
   units_sold: number;
   customer_segment: string;
+  [key: string]: unknown;
 }
 
 export interface QueryFilter {
@@ -283,7 +284,7 @@ export function executeQuery(query: QueryPlan, data?: SalesRecord[]): QueryResul
   // No groupBy — aggregate everything
   const values = rows.map(row => {
     if (aggFn === 'count') return 1;
-    const val = Number((row as Record<string, unknown>)[aggCol]);
+    const val = Number((row as unknown as Record<string, unknown>)[aggCol]);
     return isNaN(val) ? 0 : val;
   });
 
