@@ -43,4 +43,8 @@ export interface ConversationEntry {
   timestamp: number;
   dashboard: DashboardLayout | null;
   error?: string;
+  /** Plain-text AI response for chat-mode entries */
+  chatMessage?: string;
+  /** Follow-up suggestions returned alongside a chat response */
+  followUpSuggestions?: string[];
 }

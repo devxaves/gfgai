@@ -1,4 +1,4 @@
-# InsightAI — Conversational AI for Business Intelligence
+# Vizly AI — Conversational AI for Business Intelligence
 
 > Type a plain English question. Get an interactive data dashboard instantly.  
 > Powered by Google Gemini AI.
@@ -24,18 +24,18 @@
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| AI | Google Gemini API |
-| Styling | Tailwind CSS 4 |
-| Charts | Recharts |
-| Animations | Framer Motion |
-| State | Zustand |
-| Icons | Lucide React |
-| CSV Parsing | PapaParse |
-| Local Storage | Dexie.js (IndexedDB) |
+| Layer         | Technology              |
+| ------------- | ----------------------- |
+| Framework     | Next.js 16 (App Router) |
+| Language      | TypeScript 5            |
+| AI            | Google Gemini API       |
+| Styling       | Tailwind CSS 4          |
+| Charts        | Recharts                |
+| Animations    | Framer Motion           |
+| State         | Zustand                 |
+| Icons         | Lucide React            |
+| CSV Parsing   | PapaParse               |
+| Local Storage | Dexie.js (IndexedDB)    |
 
 ## 🚀 Quick Start
 
@@ -56,28 +56,32 @@ open http://localhost:3000
 
 **Get a Gemini API key:** https://aistudio.google.com/apikey (free tier available)
 
-> No database setup required! InsightAI uses a built-in 155-row sales dataset.
+> No database setup required! Vizly AI uses a built-in 155-row sales dataset.
 
 ## 📊 Test Queries
 
-Try these queries to see InsightAI in action:
+Try these queries to see Vizly AI in action:
 
 ### Simple
+
 - "Show me total revenue by region"
 - "What is the revenue breakdown by product category?"
 - "Who are the top 5 sales reps by revenue?"
 
 ### Medium
+
 - "Show monthly revenue trend for 2024"
 - "Compare revenue and cost by category"
 - "Which customer segment generates the most orders?"
 
 ### Complex
+
 - "Show Q3 revenue broken down by region"
 - "What is the profit margin by product category?"
 - "Monthly revenue trend for Laptops in the North region"
 
 ### Follow-ups
+
 - Ask "Show revenue by region" → then "Now filter to Enterprise customers"
 - Ask "Show monthly trend" → then "Break this down by category"
 

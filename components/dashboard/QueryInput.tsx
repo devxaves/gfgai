@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useDashboardStore } from "@/store/useDashboardStore";
-import { executeLocalQuery, getLocalSchema } from "@/lib/localQueryEngine";
+import { executeLocalQuery, getLocalSchema, getLocalData, evaluateLocalMetricExpression, formatLocalMetricValue } from "@/lib/localQueryEngine";
 import { Send, Loader2, Sparkles, Mic, MicOff, ChevronDown, ChevronUp, Code2, Database } from "lucide-react";
 import type { DashboardChart, DashboardMetric } from "@/types";
 
@@ -34,7 +34,7 @@ export function QueryInput() {
     setQuerying, isQuerying, addQuery, setDashboardData,
     dataSource, uploadedSchema, conversationHistory,
     addConversation, setError, setClarification, setExecutedQuery, setCannotAnswer,
-    components,
+    components, mongoCollection,
   } = useDashboardStore();
 
   // Rotating placeholder
@@ -111,9 +111,11 @@ export function QueryInput() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: finalQuery,
+          requestType: "dashboard",
           dataSource,
           conversationHistory: chatHistory,
           localSchema: schema,
+          mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
         }),
       });
 
@@ -174,12 +176,18 @@ export function QueryInput() {
           })
         );
 
-        metrics = (plan.kpis || []).map((kpi: { label?: string; title?: string; value?: string; trend?: string }) => ({
-          title: kpi.label || kpi.title || '',
-          value: kpi.value || '—',
-          trend: kpi.trend || '',
-          trendPositive: true,
-        }));
+        const localRows = await getLocalData();
+        metrics = (plan.kpis || []).map((kpi: { label?: string; title?: string; value?: string; trend?: string }) => {
+          const title = kpi.label || kpi.title || '';
+          const expression = kpi.value || '';
+          const numeric = evaluateLocalMetricExpression(localRows, expression);
+          return {
+            title,
+            value: formatLocalMetricValue(title, expression, numeric),
+            trend: kpi.trend || '',
+            trendPositive: true,
+          };
+        });
       } else {
         metrics = json.data?.metrics || [];
         charts = json.data?.charts || [];
@@ -279,7 +287,7 @@ export function ExecutedQueryViewer() {
       </button>
 
       {expanded && (
-        <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-xs font-mono overflow-auto max-h-[300px]">
+        <div className="mt-2 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-xs font-mono overflow-auto max-h-75">
           <div className="space-y-3">
             <div>
               <span className="text-indigo-500 font-semibold">PROMPT:</span>

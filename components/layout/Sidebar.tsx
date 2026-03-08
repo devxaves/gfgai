@@ -14,7 +14,7 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, darkMode, toggleDarkMode, conversationHistory, clearConversationHistory } = useDashboardStore();
 
   const links = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Data Sources", href: "/sources", icon: Database },
     { name: "Query History", href: "/history", icon: History },
     { name: "Insights", href: "/insights", icon: Lightbulb },
@@ -88,7 +88,7 @@ export function Sidebar() {
             {darkMode ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
             <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
           </button>
-          <p className="text-[10px] text-gray-400 dark:text-gray-600 px-3">InsightAI v1.0</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-600 px-3">Vizly AI v1.0</p>
         </div>
       </div>
     </>

@@ -185,8 +185,13 @@ export function executeQuery(query: QueryPlan, data?: SalesRecord[]): QueryResul
 
   // Apply filters
   if (query.filters && query.filters.length > 0) {
+    // Drop malformed filter entries (no column, null, undefined)
+    const validFilters = query.filters.filter(
+      (f): f is QueryFilter => Boolean(f && f.column)
+    );
+
     // Handle special quarter filters
-    const processedFilters = query.filters.map(f => {
+    const processedFilters = validFilters.map(f => {
       if (f.column === 'quarter' || f.column === 'date_quarter') {
         const q = String(f.value).toUpperCase();
         if (QUARTER_MAP[q]) {
@@ -196,14 +201,16 @@ export function executeQuery(query: QueryPlan, data?: SalesRecord[]): QueryResul
       return f;
     });
 
-    rows = rows.filter(row => {
-      return processedFilters.every(f => {
-        if (f.column === 'quarter') {
-          return getQuarter(row.date) === f.value;
-        }
-        return applyFilter(row, f);
+    if (processedFilters.length > 0) {
+      rows = rows.filter(row => {
+        return processedFilters.every(f => {
+          if (f.column === 'quarter') {
+            return getQuarter(row.date) === f.value;
+          }
+          return applyFilter(row, f);
+        });
       });
-    });
+    }
   }
 
   // Default aggregation
@@ -344,6 +351,7 @@ export function validateQueryColumns(query: QueryPlan): string[] {
 
   if (query.filters) {
     query.filters.forEach(f => {
+      if (!f || !f.column) return;          // skip malformed filter entries
       if (!allValid.has(f.column.toLowerCase())) {
         errors.push(`Unknown filter column: "${f.column}"`);
       }

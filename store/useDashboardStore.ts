@@ -18,6 +18,8 @@ interface DatasetEntry {
   sizeKB?: number;
   uploadedAt?: number;
   tags?: string[];
+  /** MongoDB collection name — only set for type === 'cloud' */
+  collectionName?: string;
 }
 
 interface DashboardState {
@@ -36,12 +38,14 @@ interface DashboardState {
   cannotAnswer: string | null;
 
   // Data source
-  dataSource: 'server' | 'local';
+  dataSource: 'server' | 'local' | 'mongodb';
   uploadedSchema: string[];
   activeDatasetName: string;
   uploadedRowCount: number;
   datasets: DatasetEntry[];
   activeDatasetId: string;
+  /** Active MongoDB collection name when dataSource === 'mongodb' */
+  mongoCollection: string;
 
   // Conversation
   conversationHistory: ConversationEntry[];
@@ -59,8 +63,9 @@ interface DashboardState {
   setDashboardData: (metrics: DashboardMetric[], components: DashboardChart[], summary?: string, narrative?: string, followUpSuggestions?: string[]) => void;
   setExecutedQuery: (query: ExecutedQueryInfo | null) => void;
   setCannotAnswer: (msg: string | null) => void;
-  setDataSource: (source: 'server' | 'local') => void;
+  setDataSource: (source: 'server' | 'local' | 'mongodb') => void;
   setUploadedSchema: (schema: string[]) => void;
+  setMongoCollection: (name: string) => void;
   setActiveDatasetName: (name: string) => void;
   setUploadedRowCount: (count: number) => void;
   addDataset: (dataset: DatasetEntry) => void;
@@ -87,6 +92,30 @@ const PRELOADED_DATASET: DatasetEntry = {
   tags: ['Sales', 'Revenue', '2024', 'Built-in'],
 };
 
+const ECOMMERCE_DATASET: DatasetEntry = {
+  id: 'ecommerce_demo',
+  name: 'E-Commerce Orders 2024',
+  type: 'cloud',
+  format: 'mongodb',
+  rowCount: 80,
+  columns: ['order_id', 'date', 'customer', 'country', 'product', 'category', 'quantity', 'unit_price', 'discount_pct', 'revenue', 'shipping_cost', 'status'],
+  sizeKB: 12,
+  tags: ['E-Commerce', 'Orders', 'Revenue', 'Demo'],
+  collectionName: 'ecommerce_demo',
+};
+
+const HR_DATASET: DatasetEntry = {
+  id: 'hr_analytics_demo',
+  name: 'HR Analytics 2024',
+  type: 'cloud',
+  format: 'mongodb',
+  rowCount: 65,
+  columns: ['employee_id', 'name', 'department', 'role', 'hire_date', 'salary', 'performance_score', 'projects_completed', 'region', 'gender', 'age'],
+  sizeKB: 9,
+  tags: ['HR', 'Employees', 'Performance', 'Demo'],
+  collectionName: 'hr_analytics_demo',
+};
+
 export const useDashboardStore = create<DashboardState>((set) => ({
   isQuerying: false,
   queryHistory: [],
@@ -102,8 +131,9 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   uploadedSchema: [],
   activeDatasetName: 'Sales Dataset 2024',
   uploadedRowCount: 0,
-  datasets: [PRELOADED_DATASET],
+  datasets: [PRELOADED_DATASET, ECOMMERCE_DATASET, HR_DATASET],
   activeDatasetId: 'preloaded-sales',
+  mongoCollection: '',
   conversationHistory: [],
   error: null,
   clarification: null,
@@ -133,6 +163,7 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   setCannotAnswer: (msg) => set({ cannotAnswer: msg }),
 
   setDataSource: (source) => set({ dataSource: source }),
+  setMongoCollection: (collection) => set({ mongoCollection: collection }),
   setUploadedSchema: (schema) => set({ uploadedSchema: schema }),
   setActiveDatasetName: (name) => set({ activeDatasetName: name }),
   setUploadedRowCount: (count) => set({ uploadedRowCount: count }),
@@ -168,7 +199,7 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   toggleDarkMode: () => set((state) => {
     const newMode = !state.darkMode;
     if (typeof window !== 'undefined') {
-      try { localStorage.setItem('insightai-darkmode', String(newMode)); } catch { /* */ }
+      try { localStorage.setItem('vizlyai-darkmode', String(newMode)); } catch { /* */ }
     }
     return { darkMode: newMode };
   }),

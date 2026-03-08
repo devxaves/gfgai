@@ -18,7 +18,7 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'insightai-history.json';
+    a.download = 'vizlyai-history.json';
     a.click();
     URL.revokeObjectURL(url);
   };

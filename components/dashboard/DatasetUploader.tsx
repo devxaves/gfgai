@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { UploadCloud, CheckCircle2, Loader2, X, FileSpreadsheet, Database, HardDrive, Tag, Rows3, Columns3, Clock } from "lucide-react";
 import db from "@/lib/localDatabase";
 import { useDashboardStore } from "@/store/useDashboardStore";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export function DatasetUploader() {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,8 +16,10 @@ export function DatasetUploader() {
   const [rowCount, setRowCount] = useState(0);
   const [fileSize, setFileSize] = useState(0);
   const [storageMode, setStorageMode] = useState<'local' | 'cloud'>('local');
+  const [collectionName, setCollectionName] = useState("");
+  const [cloudUploadError, setCloudUploadError] = useState<string | null>(null);
 
-  const { setDataSource, setUploadedSchema, setActiveDatasetName, setUploadedRowCount, dataSource, addDataset, setActiveDatasetId } = useDashboardStore();
+  const { setDataSource, setUploadedSchema, setActiveDatasetName, setUploadedRowCount, dataSource, addDataset, setActiveDatasetId, setMongoCollection } = useDashboardStore();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,29 +38,69 @@ export function DatasetUploader() {
           const json = JSON.parse(ev.target?.result as string);
           const data = Array.isArray(json) ? json : [json];
           if (data.length > 0) {
-            await db.uploadData(data);
             const schema = Object.keys(data[0]);
-            setPreviewSchema(schema);
-            setRowCount(data.length);
-            setUploadedSchema(schema);
-            setActiveDatasetName(file.name);
-            setUploadedRowCount(data.length);
-            setDataSource("local");
 
-            const dsId = `local-${Date.now()}`;
-            addDataset({
-              id: dsId,
-              name: file.name,
-              type: storageMode,
-              format: 'json',
-              rowCount: data.length,
-              columns: schema,
-              sizeKB: Math.round(file.size / 1024),
-              uploadedAt: Date.now(),
-              tags: detectTags(schema),
-            });
-            setActiveDatasetId(dsId);
-            setStatus("success");
+            if (storageMode === 'cloud') {
+              const safeName = (collectionName.trim() ||
+                file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+              ).slice(0, 64);
+              setCollectionName(safeName);
+              setCloudUploadError(null);
+              const resp = await fetch('/api/upload-dataset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collectionName: safeName, data }),
+              });
+              const cloudResult = await resp.json();
+              if (!cloudResult.success) {
+                setCloudUploadError(cloudResult.error || 'MongoDB upload failed');
+                setStatus('error');
+                return;
+              }
+              const savedSchema = cloudResult.schema || schema;
+              setPreviewSchema(savedSchema);
+              setRowCount(data.length);
+              setUploadedSchema(savedSchema);
+              setActiveDatasetName(file.name);
+              setUploadedRowCount(data.length);
+              setDataSource('mongodb');
+              setMongoCollection(cloudResult.collectionName);
+              addDataset({
+                id: cloudResult.collectionName,
+                name: file.name,
+                type: 'cloud',
+                format: 'mongodb',
+                rowCount: data.length,
+                columns: savedSchema,
+                sizeKB: Math.round(file.size / 1024),
+                uploadedAt: Date.now(),
+                tags: detectTags(savedSchema),
+                collectionName: cloudResult.collectionName,
+              });
+              setActiveDatasetId(cloudResult.collectionName);
+            } else {
+              await db.uploadData(data);
+              setPreviewSchema(schema);
+              setRowCount(data.length);
+              setUploadedSchema(schema);
+              setActiveDatasetName(file.name);
+              setUploadedRowCount(data.length);
+              setDataSource('local');
+              const dsId = `local-${Date.now()}`;
+              addDataset({
+                id: dsId,
+                name: file.name,
+                type: storageMode,
+                format: 'json',
+                rowCount: data.length,
+                columns: schema,
+                sizeKB: Math.round(file.size / 1024),
+                uploadedAt: Date.now(),
+                tags: detectTags(schema),
+              });
+              setActiveDatasetId(dsId);
+            }
+            setStatus('success');
           }
         } catch { setStatus("error"); }
         finally { setIsUploading(false); }
@@ -67,42 +110,124 @@ export function DatasetUploader() {
       return;
     }
 
-    Papa.parse(file, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          if (results.data.length > 0) {
-            await db.uploadData(results.data as Record<string, unknown>[]);
-            const schema = results.meta.fields || Object.keys(results.data[0] as Record<string, unknown>);
-            setPreviewSchema(schema);
-            setRowCount(results.data.length);
-            setUploadedSchema(schema);
-            setActiveDatasetName(file.name);
-            setUploadedRowCount(results.data.length);
-            setDataSource("local");
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const rawText = String(ev.target?.result || "");
+        const cleanedText = sanitizeCsvText(rawText);
 
-            const dsId = `local-${Date.now()}`;
-            addDataset({
-              id: dsId,
-              name: file.name,
-              type: storageMode,
-              format: 'csv',
-              rowCount: results.data.length,
-              columns: schema,
-              sizeKB: Math.round(file.size / 1024),
-              uploadedAt: Date.now(),
-              tags: detectTags(schema),
-            });
-            setActiveDatasetId(dsId);
-            setStatus("success");
-          }
-        } catch { setStatus("error"); }
-        finally { setIsUploading(false); }
-      },
-      error: () => { setStatus("error"); setIsUploading(false); },
-    });
+        Papa.parse(cleanedText, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: "greedy",
+          transformHeader: (h) => h.trim(),
+          transform: (value) => (typeof value === "string" ? value.trim() : value),
+          complete: async (results) => {
+            try {
+              const parsedRows = (results.data as Record<string, unknown>[])
+                .filter((row) => row && typeof row === "object")
+                .filter((row) => {
+                  const vals = Object.values(row);
+                  return vals.some((v) => v !== null && v !== undefined && String(v).trim() !== "");
+                });
+
+              const schema = (results.meta.fields || Object.keys(parsedRows[0] || {})).map((c) => c.trim());
+
+              // Remove malformed rows that don't align with schema (common with corrupted tails)
+              const validRows = parsedRows.filter((row) => {
+                const present = schema.filter((k) => Object.prototype.hasOwnProperty.call(row, k)).length;
+                return present >= Math.max(2, Math.floor(schema.length * 0.5));
+              });
+
+              if (validRows.length === 0 || schema.length === 0) {
+                setStatus("error");
+                return;
+              }
+
+              if (storageMode === 'cloud') {
+                const safeName = (collectionName.trim() ||
+                  file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_')
+                ).slice(0, 64);
+                setCollectionName(safeName);
+                setCloudUploadError(null);
+                const resp = await fetch('/api/upload-dataset', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ collectionName: safeName, data: validRows }),
+                });
+                const cloudResult = await resp.json();
+                if (!cloudResult.success) {
+                  setCloudUploadError(cloudResult.error || 'MongoDB upload failed');
+                  setStatus('error');
+                  return;
+                }
+                const savedSchema = cloudResult.schema || schema;
+                setPreviewSchema(savedSchema);
+                setRowCount(validRows.length);
+                setUploadedSchema(savedSchema);
+                setActiveDatasetName(file.name);
+                setUploadedRowCount(validRows.length);
+                setDataSource('mongodb');
+                setMongoCollection(cloudResult.collectionName);
+                addDataset({
+                  id: cloudResult.collectionName,
+                  name: file.name,
+                  type: 'cloud',
+                  format: 'mongodb',
+                  rowCount: validRows.length,
+                  columns: savedSchema,
+                  sizeKB: Math.round(file.size / 1024),
+                  uploadedAt: Date.now(),
+                  tags: detectTags(savedSchema),
+                  collectionName: cloudResult.collectionName,
+                });
+                setActiveDatasetId(cloudResult.collectionName);
+              } else {
+                await db.uploadData(validRows);
+                setPreviewSchema(schema);
+                setRowCount(validRows.length);
+                setUploadedSchema(schema);
+                setActiveDatasetName(file.name);
+                setUploadedRowCount(validRows.length);
+                setDataSource('local');
+                const dsId = `local-${Date.now()}`;
+                addDataset({
+                  id: dsId,
+                  name: file.name,
+                  type: storageMode,
+                  format: 'csv',
+                  rowCount: validRows.length,
+                  columns: schema,
+                  sizeKB: Math.round(file.size / 1024),
+                  uploadedAt: Date.now(),
+                  tags: detectTags(schema),
+                });
+                setActiveDatasetId(dsId);
+              }
+              setStatus('success');
+            } catch {
+              setStatus("error");
+            } finally {
+              setIsUploading(false);
+            }
+          },
+          error: () => {
+            setStatus("error");
+            setIsUploading(false);
+          },
+        });
+      } catch {
+        setStatus("error");
+        setIsUploading(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setStatus("error");
+      setIsUploading(false);
+    };
+
+    reader.readAsText(file);
   };
 
   const handleClose = () => {
@@ -123,18 +248,29 @@ export function DatasetUploader() {
         <span>{dataSource === 'local' ? 'CSV Active' : 'Upload'}</span>
       </button>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl w-[480px] shadow-2xl relative border border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-auto">
-            <button onClick={handleClose}
-              className="absolute right-4 top-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-10">
-              <X className="w-4 h-4" />
-            </button>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsOpen(true);
+            return;
+          }
+          handleClose();
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="w-120 max-w-[calc(100%-2rem)] max-h-[90vh] overflow-auto rounded-2xl bg-white p-0 shadow-2xl border border-gray-200 dark:border-gray-800 dark:bg-gray-900"
+        >
+          <button onClick={handleClose}
+            className="absolute right-4 top-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-10">
+            <X className="w-4 h-4" />
+          </button>
 
-            <div className="p-6">
+          <div className="p-6">
               {/* Header */}
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center">
                   <Database className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -157,17 +293,44 @@ export function DatasetUploader() {
                       <p className="text-[10px] text-gray-400">Data stays in browser</p>
                     </div>
                   </button>
-                  <button
-                    className="flex items-center gap-2.5 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed relative">
-                    <Database className="w-4 h-4 text-gray-400" />
+                  <button onClick={() => setStorageMode('cloud')}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                      storageMode === 'cloud' ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}>
+                    <Database className={`w-4 h-4 ${storageMode === 'cloud' ? 'text-violet-600' : 'text-gray-400'}`} />
                     <div className="text-left">
                       <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">Cloud (MongoDB)</p>
                       <p className="text-[10px] text-gray-400">Persistent storage</p>
                     </div>
-                    <span className="absolute top-1 right-1 text-[8px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 px-1.5 py-0.5 rounded-md font-bold">SOON</span>
                   </button>
                 </div>
               </div>
+
+              {/* Collection name — only shown for cloud mode */}
+              {storageMode === 'cloud' && (
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                    MongoDB Collection Name
+                  </label>
+                  <input
+                    type="text"
+                    value={collectionName}
+                    onChange={(e) =>
+                      setCollectionName(
+                        e.target.value.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64)
+                      )
+                    }
+                    placeholder="e.g. my_sales_data"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 dark:focus:ring-violet-600"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Leave blank to auto-generate from filename. Letters, numbers, _ and - only.
+                  </p>
+                  {cloudUploadError && (
+                    <p className="text-xs text-red-500 mt-1.5 font-medium">{cloudUploadError}</p>
+                  )}
+                </div>
+              )}
 
               {/* Drop zone */}
               <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
@@ -180,7 +343,11 @@ export function DatasetUploader() {
                    status === "success" ? <CheckCircle2 className="w-7 h-7 text-emerald-500 mb-2" /> :
                    <UploadCloud className={`w-7 h-7 mb-2 ${status === 'error' ? 'text-red-400' : 'text-gray-400'}`} />}
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {isUploading ? "Parsing..." : status === "success" ? `${fileName} uploaded!` : status === "error" ? "Upload failed. Try again." : "Click to upload or drag & drop"}
+                    {isUploading
+                      ? storageMode === 'cloud' ? 'Saving to MongoDB…' : 'Parsing…'
+                      : status === 'success' ? `${fileName} uploaded!`
+                      : status === 'error' ? 'Upload failed. Try again.'
+                      : 'Click to upload or drag & drop'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">CSV, JSON — max 50,000 rows</p>
                 </div>
@@ -251,12 +418,50 @@ export function DatasetUploader() {
                   </div>
                 </div>
               )}
-            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
+}
+
+function sanitizeCsvText(raw: string): string {
+  let text = raw.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Cut off known corruption tails seen in downloaded/pasted CSV files
+  const cutMarkers = ["</pre>", "</body>", "</html>", "X-Goog-Algorithm=", "PK\u0003\u0004"];
+  const cutPoints = cutMarkers
+    .map((m) => text.indexOf(m))
+    .filter((idx) => idx >= 0);
+
+  if (cutPoints.length > 0) {
+    text = text.slice(0, Math.min(...cutPoints));
+  }
+
+  // Strip null bytes and other control chars except tab/newline
+  text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+
+  // Keep only rows that look like CSV rows with at least one comma
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => l.includes(","));
+
+  if (lines.length === 0) return "";
+
+  const header = lines[0];
+  const expectedCols = header.split(",").length;
+
+  const cleanedLines = [
+    header,
+    ...lines.slice(1).filter((line) => {
+      const cols = line.split(",").length;
+      return cols >= Math.max(2, expectedCols - 3);
+    }),
+  ];
+
+  return cleanedLines.join("\n");
 }
 
 function detectTags(schema: string[]): string[] {

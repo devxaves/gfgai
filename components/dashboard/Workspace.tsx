@@ -6,7 +6,7 @@ import { DynamicChart } from "@/components/charts/DynamicChart";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { ErrorCard } from "@/components/dashboard/ErrorCard";
 import { ExecutedQueryViewer, EXAMPLE_PROMPTS } from "@/components/dashboard/QueryInput";
-import { executeLocalQuery, getLocalSchema } from "@/lib/localQueryEngine";
+import { executeLocalQuery, getLocalSchema, getLocalData, evaluateLocalMetricExpression, formatLocalMetricValue } from "@/lib/localQueryEngine";
 import {
   BarChart3, Sparkles, ArrowRight, MessageCircle, Download,
   Maximize2, BarChart, LineChart, PieChart, TrendingUp,
@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback } from "react";
 import type { DashboardChart, DashboardMetric, ChartType } from "@/types";
+import { LogoBadge } from "@/components/layout/LogoBadge";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } } };
@@ -28,6 +29,7 @@ export function Workspace() {
     currentQuery, conversationHistory, followUpSuggestions, clarification, cannotAnswer,
     setQuerying, addQuery, setDashboardData, uploadedSchema,
     addConversation, setError, setClarification, setCannotAnswer, setExecutedQuery,
+    mongoCollection,
   } = useDashboardStore();
 
   const [chartTypeOverrides, setChartTypeOverrides] = useState<Record<string, ChartType>>({});
@@ -50,7 +52,14 @@ export function Workspace() {
       const res = await fetch("/api/analyze-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, dataSource, conversationHistory: chatHistory, localSchema: schema }),
+        body: JSON.stringify({
+          prompt,
+          requestType: "dashboard",
+          dataSource,
+          conversationHistory: chatHistory,
+          localSchema: schema,
+          mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
+        }),
       });
       const json = await res.json();
 
@@ -97,9 +106,18 @@ export function Workspace() {
             return { ...chart, data };
           })
         );
-        metricsData = (plan.kpis || []).map((kpi: { label?: string; value?: string; trend?: string }) => ({
-          title: kpi.label || '', value: kpi.value || '—', trend: kpi.trend || '', trendPositive: true,
-        }));
+        const localRows = await getLocalData();
+        metricsData = (plan.kpis || []).map((kpi: { label?: string; value?: string; trend?: string }) => {
+          const title = kpi.label || '';
+          const expression = kpi.value || '';
+          const numeric = evaluateLocalMetricExpression(localRows, expression);
+          return {
+            title,
+            value: formatLocalMetricValue(title, expression, numeric),
+            trend: kpi.trend || '',
+            trendPositive: true,
+          };
+        });
       } else {
         metricsData = json.data?.metrics || [];
         chartsData = json.data?.charts || [];
@@ -132,7 +150,7 @@ export function Workspace() {
       ctx?.scale(2, 2);
       ctx?.drawImage(img, 0, 0);
       const link = document.createElement('a');
-      link.download = `insightai-chart-${chartId}.png`;
+      link.download = `vizlyai-chart-${chartId}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     };
@@ -161,8 +179,11 @@ export function Workspace() {
               </span>
             )}
             <span className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full">
-              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${dataSource === 'server' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-              {dataSource === 'server' ? 'Sales Data' : 'Local CSV'}
+              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                dataSource === 'server' ? 'bg-emerald-500' :
+                dataSource === 'mongodb' ? 'bg-violet-500' : 'bg-blue-500'
+              }`} />
+              {dataSource === 'server' ? 'Sales Data' : dataSource === 'mongodb' ? `MongoDB: ${mongoCollection}` : 'Local CSV'}
             </span>
           </div>
         </motion.div>
@@ -257,7 +278,7 @@ export function Workspace() {
                 const ChartIcon = CHART_ICONS[displayType] || BarChart;
                 return (
                   <motion.div key={chart.id} variants={item} id={`chart-${chart.id}`}
-                    className="group p-5 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-[360px] hover:shadow-md transition-shadow">
+                    className="group p-5 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-90 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-3">
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">{chart.title}</h3>
@@ -304,7 +325,7 @@ export function Workspace() {
 
             {/* Narrative */}
             {(narrative || summary) && (
-              <motion.div variants={item} className="p-5 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+              <motion.div variants={item} className="p-5 bg-linear-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center shrink-0">
                     <Sparkles className="w-4 h-4 text-indigo-600" />
@@ -354,7 +375,7 @@ export function Workspace() {
               return (
                 <>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 mb-4">{chart.title}</h3>
-                  <div className="h-[500px]">
+                  <div className="h-125">
                     <DynamicChart type={displayType as ChartType} data={chart.data} xAxisKey={chart.xAxisKey} series={chart.series} />
                   </div>
                 </>
@@ -370,10 +391,10 @@ export function Workspace() {
 function EmptyState({ onPromptClick }: { onPromptClick: (prompt: string) => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6">
-      <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/20">
-        <BarChart3 className="w-8 h-8 text-white" />
+      <div className="mb-5">
+        <LogoBadge size="lg" />
       </div>
-      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1.5">Welcome to InsightAI</h3>
+      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1.5">Welcome to Vizly AI</h3>
       <p className="text-gray-500 dark:text-gray-400 text-center max-w-md text-sm mb-6">
         Ask questions in natural language and get instant dashboards with charts, KPIs, and AI-powered insights.
       </p>

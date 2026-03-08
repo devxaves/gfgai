@@ -8,7 +8,7 @@ export function DataSourceSelector() {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { datasets, activeDatasetId, setActiveDatasetId, setDataSource, setActiveDatasetName, setUploadedSchema } = useDashboardStore();
+  const { datasets, activeDatasetId, setActiveDatasetId, setDataSource, setActiveDatasetName, setUploadedSchema, setMongoCollection } = useDashboardStore();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -16,6 +16,14 @@ export function DataSourceSelector() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Seed demo MongoDB datasets once per browser session (idempotent on the server)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !sessionStorage.getItem('vizlyai-demo-seeded')) {
+      sessionStorage.setItem('vizlyai-demo-seeded', '1');
+      fetch('/api/seed-demo-datasets', { method: 'POST' }).catch(() => {});
+    }
   }, []);
 
   const activeDataset = datasets.find(d => d.id === activeDatasetId);
@@ -26,6 +34,11 @@ export function DataSourceSelector() {
     if (dataset.type === 'preloaded') {
       setDataSource('server');
       setUploadedSchema([]);
+    } else if (dataset.type === 'cloud') {
+      setDataSource('mongodb');
+      setUploadedSchema(dataset.columns);
+      // For cloud datasets, id === collectionName
+      setMongoCollection(dataset.id);
     } else {
       setDataSource('local');
       setUploadedSchema(dataset.columns);
@@ -78,10 +91,7 @@ export function DataSourceSelector() {
             {cloud.length > 0 ? cloud.map(ds => (
               <DatasetCard key={ds.id} dataset={ds} isActive={ds.id === activeDatasetId} onClick={() => handleSelect(ds)} TypeIcon={TypeIcon} TypeColor={TypeColor} TypeBg={TypeBg} />
             )) : (
-              <div className="px-2 py-1.5 flex items-center gap-2">
-                <p className="text-xs text-gray-400">Cloud upload</p>
-                <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-600 px-1.5 py-0.5 rounded-md font-medium">Coming soon</span>
-              </div>
+              <p className="text-xs text-gray-400 px-2 py-1.5">Upload a file with Cloud (MongoDB) mode to see it here</p>
             )}
           </div>
         </div>

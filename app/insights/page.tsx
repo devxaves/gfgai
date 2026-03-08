@@ -17,6 +17,9 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  dataHighlights?: string[];
+  conversationHighlights?: string[];
+  followUpSuggestions?: string[];
 }
 
 export default function InsightsPage() {
@@ -28,9 +31,10 @@ export default function InsightsPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [highlightTabByMessage, setHighlightTabByMessage] = useState<Record<string, 'data' | 'conversation'>>({});
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const { dataSource, activeDatasetName, uploadedRowCount, uploadedSchema, datasets, activeDatasetId } = useDashboardStore();
+  const { dataSource, activeDatasetName, uploadedRowCount, uploadedSchema, datasets, activeDatasetId, mongoCollection } = useDashboardStore();
 
   const activeDs = datasets.find(d => d.id === activeDatasetId);
 
@@ -42,8 +46,10 @@ export default function InsightsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: "Identify the top 5 business insights a CEO should know from this sales dataset. Focus on revenue trends, top performers, underperformers, and growth opportunities.",
+          prompt: `Identify the top 5 key business insights from ${activeDs?.name || activeDatasetName || 'this dataset'}. Focus on top performers, underperformers, trends, and growth opportunities.`,
+          requestType: "dashboard",
           dataSource,
+          mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
           localSchema: dataSource === 'local' ? uploadedSchema : [],
         }),
       });
@@ -55,19 +61,24 @@ export default function InsightsPage() {
           metric: String(m.value || ''),
           trend: m.trendPositive === false ? 'down' : m.trendPositive ? 'up' : 'neutral',
         }));
-        setInsights(mapped.length > 0 ? mapped : DEFAULT_INSIGHTS);
+        setInsights(mapped.length > 0 ? mapped : (dataSource === 'server' ? DEFAULT_INSIGHTS : []));
       } else {
-        setInsights(DEFAULT_INSIGHTS);
+        setInsights(dataSource === 'server' ? DEFAULT_INSIGHTS : []);
       }
     } catch {
-      setError("Failed to generate insights. Using cached data.");
-      setInsights(DEFAULT_INSIGHTS);
+      setError("Failed to generate insights. Please try refreshing.");
+      setInsights(dataSource === 'server' ? DEFAULT_INSIGHTS : []);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchInsights(); }, []);
+  useEffect(() => {
+    setInsights([]);
+    setChatMessages([]);
+    fetchInsights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDatasetId, dataSource, mongoCollection]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -88,7 +99,9 @@ export default function InsightsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: chatInput,
+          requestType: "insights-chat",
           dataSource,
+          mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
           conversationHistory: chatHistory,
           localSchema: dataSource === 'local' ? uploadedSchema : [],
         }),
@@ -96,20 +109,36 @@ export default function InsightsPage() {
       const json = await res.json();
 
       let response = "I couldn't generate a response. Please try again.";
+      let dataHighlights: string[] = [];
+      let conversationHighlights: string[] = [];
+      let followUpSuggestions: string[] = [];
       if (json.success) {
-        if (json.data?.summary) response = json.data.summary;
+        if (json.mode === 'insights-chat') {
+          response = json.data?.message || response;
+          dataHighlights = json.data?.dataHighlights || [];
+          conversationHighlights = json.data?.conversationHighlights || [];
+          followUpSuggestions = json.data?.followUpSuggestions || [];
+        } else if (json.data?.summary) response = json.data.summary;
         else if (json.mode === 'cannotAnswer') response = json.reason || "This query cannot be answered with the current dataset.";
         else if (json.mode === 'clarification') response = json.clarification || "Could you be more specific?";
       } else {
         response = json.error || "Something went wrong.";
       }
 
+      const assistantId = `a-${Date.now()}`;
       setChatMessages(prev => [...prev, {
-        id: `a-${Date.now()}`,
+        id: assistantId,
         role: 'assistant',
         content: response,
         timestamp: Date.now(),
+        dataHighlights,
+        conversationHighlights,
+        followUpSuggestions,
       }]);
+
+      if (dataHighlights.length > 0 || conversationHighlights.length > 0) {
+        setHighlightTabByMessage(prev => ({ ...prev, [assistantId]: dataHighlights.length > 0 ? 'data' : 'conversation' }));
+      }
     } catch {
       setChatMessages(prev => [...prev, {
         id: `a-${Date.now()}`,
@@ -133,7 +162,7 @@ export default function InsightsPage() {
         <header className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl flex items-center px-6 shrink-0 z-10">
           <div className="w-10 lg:hidden" />
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-9 h-9 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-linear-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
               <Lightbulb className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -158,9 +187,9 @@ export default function InsightsPage() {
                   <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
                     <Database className="w-5 h-5 text-indigo-600" />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">{activeDs?.name || activeDatasetName || 'Sales Dataset 2024'}</h3>
-                    <p className="text-[10px] text-gray-400">{dataSource === 'server' ? 'Built-in Dataset' : 'Local Upload'}</p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">{activeDs?.name || activeDatasetName || 'Sales Dataset 2024'}</h3>
+                    <p className="text-[10px] text-gray-400">{dataSource === 'server' ? 'Built-in Preloaded Dataset' : dataSource === 'mongodb' ? 'MongoDB Cloud Dataset' : 'Locally Uploaded CSV'}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mb-3">
@@ -170,7 +199,7 @@ export default function InsightsPage() {
                   </div>
                   <div className="flex items-center gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <Columns3 className="w-3.5 h-3.5 text-violet-500" />
-                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{(activeDs?.columns.length || 10)} cols</span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{(activeDs?.columns.length || uploadedSchema.length || 10)} cols</span>
                   </div>
                   <div className="flex items-center gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <BarChart3 className="w-3.5 h-3.5 text-emerald-500" />
@@ -178,11 +207,28 @@ export default function InsightsPage() {
                   </div>
                 </div>
                 {activeDs?.tags && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 mb-3">
                     <Tag className="w-3 h-3 text-gray-400" />
                     <div className="flex flex-wrap gap-1">
                       {activeDs.tags.map(tag => (
                         <span key={tag} className="text-[10px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-md font-medium">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Column chips */}
+                {(activeDs?.columns || uploadedSchema).length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1.5">Columns</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(activeDs?.columns || uploadedSchema).map(col => (
+                        <button
+                          key={col}
+                          onClick={() => setChatInput(`Tell me about the "${col}" column`)}
+                          className="text-[10px] px-1.5 py-0.5 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded font-mono border border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                        >
+                          {col}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -204,6 +250,12 @@ export default function InsightsPage() {
                       <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded" />
                     </div>
                   ))}
+                </div>
+              ) : insights.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Lightbulb className="w-8 h-8 text-gray-300 dark:text-gray-700 mb-3" />
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No insights yet</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">Click <strong>Refresh</strong> to generate insights for this dataset</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -238,7 +290,7 @@ export default function InsightsPage() {
                 <p className="text-[10px] text-gray-400 mt-0.5">Get AI-powered answers about your data</p>
               </div>
 
-              <div ref={chatRef} className="flex-1 overflow-auto p-4 space-y-3 min-h-[200px]">
+              <div ref={chatRef} className="flex-1 overflow-auto p-4 space-y-3 min-h-50">
                 {chatMessages.length === 0 && (
                   <div className="text-center py-6">
                     <Sparkles className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
@@ -260,7 +312,61 @@ export default function InsightsPage() {
                         ? 'bg-indigo-600 text-white rounded-br-sm'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
                     }`}>
-                      {msg.content}
+                      <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+
+                      {msg.role === 'assistant' && ((msg.dataHighlights?.length || 0) > 0 || (msg.conversationHighlights?.length || 0) > 0) && (
+                        <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-2">
+                          <div className="mb-2 flex items-center gap-1">
+                            <button
+                              onClick={() => setHighlightTabByMessage(prev => ({ ...prev, [msg.id]: 'data' }))}
+                              className={`px-2 py-1 text-[10px] rounded-md font-medium transition-colors ${
+                                (highlightTabByMessage[msg.id] || 'data') === 'data'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
+                              }`}
+                            >
+                              Data Highlights
+                            </button>
+                            <button
+                              onClick={() => setHighlightTabByMessage(prev => ({ ...prev, [msg.id]: 'conversation' }))}
+                              className={`px-2 py-1 text-[10px] rounded-md font-medium transition-colors ${
+                                (highlightTabByMessage[msg.id] || 'data') === 'conversation'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
+                              }`}
+                            >
+                              Conversation Highlights
+                            </button>
+                          </div>
+
+                          <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-300 list-disc pl-4">
+                            {((highlightTabByMessage[msg.id] || 'data') === 'data'
+                              ? msg.dataHighlights
+                              : msg.conversationHighlights
+                            )?.map((item, idx) => (
+                              <li key={`${msg.id}-${idx}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Follow-up suggestion chips */}
+                      {msg.role === 'assistant' && (msg.followUpSuggestions?.length ?? 0) > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-[10px] text-gray-400 mb-1.5 font-medium">Ask next:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.followUpSuggestions!.map((s, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setChatInput(s)}
+                                className="text-[11px] px-2.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full hover:border-amber-400 hover:text-amber-600 dark:hover:border-amber-500 dark:hover:text-amber-400 text-gray-500 dark:text-gray-400 transition-colors"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {msg.role === 'user' && (
                       <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
