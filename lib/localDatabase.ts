@@ -5,9 +5,6 @@ export class LocalDatabase extends Dexie {
 
   constructor() {
     super('InsightAIDatabase');
-    // Define the schema: id is auto-incremented primary key, 
-    // we also index any keys we might filter on, 
-    // but initially we just store the generic object.
     this.version(1).stores({
       uploads: '++id'
     });
@@ -20,6 +17,20 @@ export class LocalDatabase extends Dexie {
 
   async getAllData() {
     return await this.uploads.toArray();
+  }
+
+  async getRowCount() {
+    return await this.uploads.count();
+  }
+
+  async getSchema(): Promise<string[]> {
+    const data = await this.uploads.limit(1).toArray();
+    if (!data || data.length === 0) return [];
+    return Object.keys(data[0]).filter(k => k !== 'id');
+  }
+
+  async clearData() {
+    await this.uploads.clear();
   }
 }
 
