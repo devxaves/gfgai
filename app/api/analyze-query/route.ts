@@ -270,6 +270,8 @@ RULES:
 - conversationHighlights: summarise user intent (e.g. "User is analysing regional performance")
 - followUpSuggestions: specific, actionable questions the user can click to ask next
 - If unanswerable, still return valid JSON with a clear message and meaningful suggestions
+- When possible, include a concise one-line answer at the top of the message section for quick executive understanding
+- Calculate results using the dataset — do not return static or hardcoded answers
 - Never invent columns not in the schema
 - DO NOT return markdown code fences`;
 
