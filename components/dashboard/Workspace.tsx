@@ -18,7 +18,7 @@ import type { DashboardChart, DashboardMetric, ChartType } from "@/types";
 import { LogoBadge } from "@/components/layout/LogoBadge";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
-const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } } };
+const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
 const CHART_ICONS: Record<string, typeof BarChart> = { bar: BarChart, line: LineChart, pie: PieChart, area: TrendingUp, stacked: BarChart3 };
 const SWITCHABLE_TYPES: ChartType[] = ['bar', 'line', 'pie', 'area'];
