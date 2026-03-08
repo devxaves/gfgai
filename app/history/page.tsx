@@ -40,7 +40,7 @@ export default function HistoryPage() {
                   <HistoryIcon className="w-8 h-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">No queries yet</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Go to the Dashboard and ask InsightAI a question.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Go to the Dashboard and ask Vizly AI a question.</p>
               </div>
             ) : (
               <div className="space-y-3">

@@ -6,9 +6,12 @@ import { DarkModeProvider } from "@/components/layout/DarkModeProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "InsightAI — Conversational Business Intelligence",
+  title: "Vizly AI - Conversational Business Intelligence",
   description: "Generate interactive dashboards instantly through natural language queries. No SQL required.",
   keywords: ["AI", "Business Intelligence", "Dashboard", "Analytics", "Natural Language"],
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({

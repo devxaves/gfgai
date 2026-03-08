@@ -139,7 +139,7 @@ export function QueryInput() {
         placeholder={
           hasExistingDashboard
             ? 'Refine your dashboard (e.g., "Filter to East region")'
-            : 'Ask InsightAI anything about your data...'
+            : 'Ask Vizly AI anything about your data...'
         }
         className="w-full h-11 pl-10 pr-12 text-sm border border-gray-200 dark:border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 shadow-sm transition-all bg-white dark:bg-gray-800 dark:text-gray-100 placeholder:text-gray-400"
         disabled={isQuerying}

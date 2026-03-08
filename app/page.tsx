@@ -16,9 +16,9 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <DatasetUploader />
-            <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-white text-[11px] font-bold shadow-sm">
+            {/* <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-white text-[11px] font-bold shadow-sm">
               AI
-            </div>
+            </div> */}
           </div>
         </header>
 

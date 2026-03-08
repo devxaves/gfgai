@@ -6,8 +6,9 @@ import { DynamicChart } from "@/components/charts/DynamicChart";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { ErrorCard } from "@/components/dashboard/ErrorCard";
 import { EXAMPLE_PROMPTS } from "@/components/dashboard/QueryInput";
+import { LogoBadge } from "@/components/layout/LogoBadge";
 import { executeLocalQuery, getLocalSchema } from "@/lib/localQueryEngine";
-import { BarChart3, Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { DashboardChart, DashboardMetric } from "@/types";
 
@@ -222,10 +223,8 @@ export function Workspace() {
 function EmptyState({ onPromptClick }: { onPromptClick: (prompt: string) => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-8">
-      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-violet-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-blue-500/25">
-        <BarChart3 className="w-10 h-10 text-white" />
-      </div>
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2">Welcome to InsightAI</h3>
+      <LogoBadge size="lg" />
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 mt-6">Welcome to Vizly AI</h3>
       <p className="text-gray-500 dark:text-gray-400 text-center max-w-lg text-sm leading-relaxed mb-8">
         Ask questions in natural language and get instant dashboards with charts and insights.
         Try one of the examples below or type your own query.

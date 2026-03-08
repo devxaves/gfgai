@@ -3,7 +3,7 @@ Conversational AI for Instant Business Intelligence Dashboards
 1. Product Overview
 1.1 Product Name
 
-InsightAI – Conversational Business Intelligence Dashboard Generator
+Vizly AI – Conversational Business Intelligence Dashboard Generator
 
 1.2 Vision
 

@@ -1,5 +1,5 @@
 // ============================================================================
-// InsightAI — Shared TypeScript Types
+// Vizly AI — Shared TypeScript Types
 // ============================================================================
 
 export type ChartType = 'line' | 'bar' | 'pie' | 'stacked' | 'area';

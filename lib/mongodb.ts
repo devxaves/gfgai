@@ -15,7 +15,7 @@ export function isMongoConfigured(): boolean {
 async function connectToDatabase() {
   if (!isMongoConfigured()) {
     console.warn(
-      '[InsightAI] MONGODB_URI not set — running in local-only mode. ' +
+      '[Vizly AI] MONGODB_URI not set — running in local-only mode. ' +
       'Upload a CSV to get started, or add MONGODB_URI to .env for database mode.'
     );
     return null;
@@ -30,7 +30,7 @@ async function connectToDatabase() {
       .connect(MONGODB_URI!, { bufferCommands: false })
       .then((m) => m)
       .catch((err) => {
-        console.error('[InsightAI] MongoDB connection failed:', err.message);
+        console.error('[Vizly AI] MongoDB connection failed:', err.message);
         cached.promise = null;
         return null;
       });

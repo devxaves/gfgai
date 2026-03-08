@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDashboardStore } from "@/store/useDashboardStore";
+import { LogoBadge } from "@/components/layout/LogoBadge";
 import {
   LayoutDashboard, Database, History, Lightbulb, Settings,
-  Menu, X, Trash2, Moon, Sun, BarChart3,
+  Menu, X, Trash2, Moon, Sun,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -47,14 +48,8 @@ export function Sidebar() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="mb-6 px-3 flex items-center space-x-2.5">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <BarChart3 className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-gray-900 dark:text-gray-50">InsightAI</h1>
-            <p className="text-[10px] text-gray-400 -mt-0.5 uppercase tracking-wider font-medium">Conversational BI</p>
-          </div>
+        <div className="mb-6">
+          <LogoBadge size="md" showText />
         </div>
 
         {/* Navigation */}

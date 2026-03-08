@@ -4,7 +4,7 @@ export class LocalDatabase extends Dexie {
   uploads!: Table<any, number>;
 
   constructor() {
-    super('InsightAIDatabase');
+    super('VizlyAIDatabase');
     this.version(1).stores({
       uploads: '++id'
     });

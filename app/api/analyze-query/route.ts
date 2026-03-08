@@ -37,14 +37,14 @@ async function callGeminiWithRetry(ai: any, instructions: string, maxRetries = 3
         // Rate limit — wait and retry
         if (status === 429 || message.includes('RESOURCE_EXHAUSTED') || message.includes('quota')) {
           const waitMs = Math.min(2000 * Math.pow(2, attempt), 15000);
-          console.warn(`[InsightAI] Rate limited on ${model}, waiting ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+          console.warn(`[Vizly AI] Rate limited on ${model}, waiting ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
           await new Promise(r => setTimeout(r, waitMs));
           continue;
         }
 
         // Model not found/supported — try next model
         if (status === 404 || message.includes('not found') || message.includes('not supported')) {
-          console.warn(`[InsightAI] Model ${model} not available, trying next...`);
+          console.warn(`[Vizly AI] Model ${model} not available, trying next...`);
           break; // break inner retry loop, go to next model
         }
 
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
         .join('\n')}\n\nThe user is asking a follow-up question. Maintain context from the previous queries.`;
     }
 
-    const instructions = `You are InsightAI, a data analyst assistant. Given a user's natural language query and a dataset schema, return a structured JSON response that describes what dashboard to build.
+    const instructions = `You are Vizly AI, a data analyst assistant. Given a user's natural language query and a dataset schema, return a structured JSON response that describes what dashboard to build.
 
 Dataset: ${schemaContext}
 ${conversationContext}
@@ -289,7 +289,7 @@ Rules:
     });
 
   } catch (error: any) {
-    console.error('[InsightAI] API Error:', error);
+    console.error('[Vizly AI] API Error:', error);
     return NextResponse.json({
       success: false,
       error: error.message || 'An unexpected error occurred. Please try again.',

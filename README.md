@@ -1,4 +1,4 @@
-# InsightAI — Conversational Business Intelligence Dashboard
+# Vizly AI — Conversational Business Intelligence Dashboard
 
 <p align="center">
   Generate interactive dashboards instantly through natural language queries. No SQL required.
@@ -22,19 +22,19 @@
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
-| UI Components | shadcn/ui |
-| Styling | Tailwind CSS 4 |
-| State Management | Zustand |
-| AI | Google Gemini API |
-| Charts | Recharts |
-| Animations | Framer Motion |
-| Database (Server) | MongoDB + Mongoose |
-| Database (Browser) | IndexedDB + Dexie.js |
-| CSV Parsing | PapaParse |
+| Layer              | Technology              |
+| ------------------ | ----------------------- |
+| Framework          | Next.js 16 (App Router) |
+| Language           | TypeScript              |
+| UI Components      | shadcn/ui               |
+| Styling            | Tailwind CSS 4          |
+| State Management   | Zustand                 |
+| AI                 | Google Gemini API       |
+| Charts             | Recharts                |
+| Animations         | Framer Motion           |
+| Database (Server)  | MongoDB + Mongoose      |
+| Database (Browser) | IndexedDB + Dexie.js    |
+| CSV Parsing        | PapaParse               |
 
 ---
 
@@ -50,17 +50,20 @@
 ### Environment Setup
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/devxaves/gfgai.git
    cd gfgai
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment variables:**
+
    ```bash
    cp .env.example .env
    ```
@@ -73,7 +76,7 @@
 
    # OPTIONAL — Leave blank to use local CSV mode
    # Get from https://www.mongodb.com/cloud/atlas
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/insightai
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/vizlyai
 
    # App URL (keep as-is for local development)
    NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -82,6 +85,7 @@
    > **Note:** If `MONGODB_URI` is left blank, InsightAI runs in **local-only mode**. Upload a CSV file and start querying immediately — no database required!
 
 4. **Start the development server:**
+
    ```bash
    npm run dev
    ```
@@ -96,17 +100,20 @@
 ## 📊 How to Use
 
 ### Option A: Upload Your Own Data
+
 1. Click **"Upload Data"** in the header
 2. Select a CSV or JSON file
 3. View the detected schema
 4. Start asking questions about your data!
 
 ### Option B: Use MongoDB Demo Data
+
 1. Set `MONGODB_URI` in `.env` to your MongoDB cluster
 2. Seed the database with demo data (see below)
 3. Ask questions like "Show me revenue by region"
 
 ### Example Queries
+
 - `Show me total revenue by region`
 - `Compare product categories by sales`
 - `Monthly revenue trend over time`
@@ -149,9 +156,11 @@ gfgai/
 ## 🔌 API Endpoints
 
 ### `POST /api/analyze-query`
+
 Sends a natural language query to Gemini and returns dashboard data.
 
 **Request:**
+
 ```json
 {
   "prompt": "Show me revenue by region",
@@ -162,6 +171,7 @@ Sends a natural language query to Gemini and returns dashboard data.
 ```
 
 **Response (local mode):**
+
 ```json
 {
   "success": true,

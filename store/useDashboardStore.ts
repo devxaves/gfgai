@@ -91,7 +91,7 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     const newMode = !state.darkMode;
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('insightai-darkmode', String(newMode));
+        localStorage.setItem('vizlyai-darkmode', String(newMode));
       } catch { /* ignore */ }
     }
     return { darkMode: newMode };

@@ -12,7 +12,7 @@ export function DarkModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     try {
-      const saved = localStorage.getItem("insightai-darkmode");
+      const saved = localStorage.getItem("vizlyai-darkmode");
       if (saved === "true" && !darkMode) {
         toggleDarkMode(); // flip from false → true
       }
