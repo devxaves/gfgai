@@ -222,7 +222,7 @@ export async function executeLocalQuery(params: LocalQueryParams): Promise<Aggre
   // Apply filters
   if (params.filters) {
     if (Array.isArray(params.filters) && params.filters.length > 0) {
-      data = data.filter(row => params.filters!.every(f => applyStructuredFilter(row, f)));
+      data = data.filter(row => (params.filters as Array<{ column: string; operator?: string; value: unknown }>).every(f => applyStructuredFilter(row, f)));
     } else if (!Array.isArray(params.filters) && Object.keys(params.filters).length > 0) {
       data = data.filter(row => {
         return Object.entries(params.filters as Record<string, any>).every(([key, val]) => {
