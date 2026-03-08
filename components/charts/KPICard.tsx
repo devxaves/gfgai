@@ -13,7 +13,7 @@ const ACCENT_COLORS = [
 
 function useCountUp(target: number, duration = 800): number {
   const [value, setValue] = useState(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number>(undefined);
 
   useEffect(() => {
     let start: number | null = null;
