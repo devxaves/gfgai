@@ -1,208 +1,139 @@
-# Vizly AI — Conversational Business Intelligence Dashboard
+# InsightAI — Conversational AI for Business Intelligence
 
-<p align="center">
-  Generate interactive dashboards instantly through natural language queries. No SQL required.
-</p>
+> Type a plain English question. Get an interactive data dashboard instantly.  
+> Powered by Google Gemini AI.
 
----
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Gemini](https://img.shields.io/badge/Gemini_AI-Powered-purple?logo=google)
 
 ## ✨ Features
 
-- **Natural Language Queries** — Type questions like "Show me revenue by region" and get instant dashboards
-- **AI-Powered Analysis** — Google Gemini interprets your questions and selects optimal chart types
-- **Dynamic Charts** — Bar, Line, Pie, Area, and Stacked charts rendered with Recharts
-- **CSV/JSON Upload** — Upload your own dataset and query it immediately in the browser
-- **Conversational Follow-ups** — Refine dashboards with follow-up questions ("Now filter to East region")
-- **KPI Cards** — Executive-level metric summaries with trend indicators
-- **AI Insights** — Auto-generated insights from your data analysis
-- **Dark Mode** — Full dark theme with OKLCH color system
-- **Responsive Design** — Works on desktop, tablet, and mobile
-
----
+- **Natural Language Queries** — Ask questions like "Show me revenue by region" and get instant charts
+- **Multi-Chart Dashboards** — Generates bar, line, pie, area, and stacked charts
+- **KPI Cards** — Animated metrics with trend indicators
+- **AI Narrative** — Executive summary explaining what the charts reveal
+- **Follow-Up Suggestions** — AI-generated follow-up questions for deeper analysis
+- **Chart Type Switcher** — Instantly switch between bar/line/pie/area without re-querying
+- **Chart Download** — Export any chart as PNG
+- **Voice Input** — Speak your query using Web Speech API (Chrome/Edge)
+- **CSV Upload** — Upload your own data and query it instantly
+- **Conversation Context** — Follow-up queries understand previous context
+- **Dark Mode** — Full dark mode support
+- **Mobile Responsive** — Collapsible sidebar, works on all screen sizes
 
 ## 🛠 Tech Stack
 
-| Layer              | Technology              |
-| ------------------ | ----------------------- |
-| Framework          | Next.js 16 (App Router) |
-| Language           | TypeScript              |
-| UI Components      | shadcn/ui               |
-| Styling            | Tailwind CSS 4          |
-| State Management   | Zustand                 |
-| AI                 | Google Gemini API       |
-| Charts             | Recharts                |
-| Animations         | Framer Motion           |
-| Database (Server)  | MongoDB + Mongoose      |
-| Database (Browser) | IndexedDB + Dexie.js    |
-| CSV Parsing        | PapaParse               |
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript 5 |
+| AI | Google Gemini API |
+| Styling | Tailwind CSS 4 |
+| Charts | Recharts |
+| Animations | Framer Motion |
+| State | Zustand |
+| Icons | Lucide React |
+| CSV Parsing | PapaParse |
+| Local Storage | Dexie.js (IndexedDB) |
 
----
+## 🚀 Quick Start
 
-## 🚀 Getting Started
+```bash
+# 1. Install dependencies
+npm install
 
-### Prerequisites
+# 2. Set up environment
+cp .env.example .env
+# Edit .env and add your Gemini API key
 
-- **Node.js** 18+ installed
-- **npm** (comes with Node.js)
-- **Google Gemini API Key** — [Get one free here](https://aistudio.google.com/apikey)
-- **MongoDB Atlas** (optional) — [Create a free cluster](https://www.mongodb.com/cloud/atlas)
+# 3. Start development server
+npm run dev
 
-### Environment Setup
+# 4. Open browser
+open http://localhost:3000
+```
 
-1. **Clone the repository:**
+**Get a Gemini API key:** https://aistudio.google.com/apikey (free tier available)
 
-   ```bash
-   git clone https://github.com/devxaves/Vizly AI.git
-   cd Vizly AI
-   ```
+> No database setup required! InsightAI uses a built-in 155-row sales dataset.
 
-2. **Install dependencies:**
+## 📊 Test Queries
 
-   ```bash
-   npm install
-   ```
+Try these queries to see InsightAI in action:
 
-3. **Configure environment variables:**
+### Simple
+- "Show me total revenue by region"
+- "What is the revenue breakdown by product category?"
+- "Who are the top 5 sales reps by revenue?"
 
-   ```bash
-   cp .env.example .env
-   ```
+### Medium
+- "Show monthly revenue trend for 2024"
+- "Compare revenue and cost by category"
+- "Which customer segment generates the most orders?"
 
-   Then edit `.env` and fill in your values:
+### Complex
+- "Show Q3 revenue broken down by region"
+- "What is the profit margin by product category?"
+- "Monthly revenue trend for Laptops in the North region"
 
-   ```env
-   # REQUIRED — Get from https://aistudio.google.com/apikey
-   GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
-
-   # OPTIONAL — Leave blank to use local CSV mode
-   # Get from https://www.mongodb.com/cloud/atlas
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/vizlyai
-
-   # App URL (keep as-is for local development)
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   ```
-
-   > **Note:** If `MONGODB_URI` is left blank, InsightAI runs in **local-only mode**. Upload a CSV file and start querying immediately — no database required!
-
-4. **Start the development server:**
-
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser:**
-   ```
-   http://localhost:3000
-   ```
-
----
-
-## 📊 How to Use
-
-### Option A: Upload Your Own Data
-
-1. Click **"Upload Data"** in the header
-2. Select a CSV or JSON file
-3. View the detected schema
-4. Start asking questions about your data!
-
-### Option B: Use MongoDB Demo Data
-
-1. Set `MONGODB_URI` in `.env` to your MongoDB cluster
-2. Seed the database with demo data (see below)
-3. Ask questions like "Show me revenue by region"
-
-### Example Queries
-
-- `Show me total revenue by region`
-- `Compare product categories by sales`
-- `Monthly revenue trend over time`
-- `Top 5 products by revenue`
-- Follow-up: `Now filter to East region only`
-
----
+### Follow-ups
+- Ask "Show revenue by region" → then "Now filter to Enterprise customers"
+- Ask "Show monthly trend" → then "Break this down by category"
 
 ## 📁 Project Structure
 
 ```
-Vizly AI/
+gfgai/
 ├── app/
-│   ├── api/analyze-query/   → AI query processing API
-│   ├── history/             → Query history page
-│   ├── sources/             → Data sources management
-│   ├── insights/            → AI-generated insights
-│   ├── settings/            → App preferences
-│   ├── layout.tsx           → Root layout with dark mode
-│   ├── page.tsx             → Main dashboard
-│   └── globals.css          → Design system tokens
+│   ├── page.tsx              # Main dashboard
+│   ├── history/page.tsx      # Query history timeline
+│   ├── sources/page.tsx      # Data source management
+│   ├── insights/page.tsx     # AI-generated insights
+│   ├── settings/page.tsx     # App configuration
+│   └── api/
+│       └── analyze-query/    # Gemini AI + query execution
 ├── components/
-│   ├── charts/              → DynamicChart, KPICard
-│   ├── dashboard/           → QueryInput, Workspace, DatasetUploader, etc.
-│   ├── layout/              → Sidebar, DarkModeProvider
-│   └── ui/                  → shadcn/ui primitives
+│   ├── charts/
+│   │   ├── DynamicChart.tsx   # Multi-type chart renderer
+│   │   └── KPICard.tsx        # Animated KPI cards
+│   ├── dashboard/
+│   │   ├── QueryInput.tsx     # Voice + text query input
+│   │   ├── Workspace.tsx      # Dashboard grid with charts
+│   │   ├── DatasetUploader.tsx # CSV/JSON file upload
+│   │   ├── SkeletonDashboard.tsx # Progressive loading
+│   │   └── ErrorCard.tsx      # Styled error display
+│   └── layout/
+│       ├── Sidebar.tsx        # Navigation sidebar
+│       └── LogoBadge.tsx      # Logo component
+├── data/
+│   └── sales.json            # Built-in 155-row dataset
 ├── lib/
-│   ├── gemini.ts            → Google Gemini AI client
-│   ├── localDatabase.ts     → IndexedDB (Dexie) for CSV storage
-│   ├── localQueryEngine.ts  → In-browser aggregation engine
-│   └── mongodb.ts           → MongoDB connection
-├── models/                  → Mongoose schemas
-├── store/                   → Zustand state management
-├── types/                   → Shared TypeScript interfaces
-└── docs/                    → PRD, design docs, tech rules
+│   ├── gemini.ts             # Gemini API client
+│   ├── queryExecutor.ts      # Server-side query engine
+│   ├── localDatabase.ts      # IndexedDB (Dexie) wrapper
+│   └── localQueryEngine.ts   # Client-side query engine
+├── store/
+│   └── useDashboardStore.ts  # Zustand state management
+└── types/
+    └── index.ts              # Shared TypeScript types
 ```
 
----
+## 🔑 API
 
-## 🔌 API Endpoints
+### POST /api/analyze-query
 
-### `POST /api/analyze-query`
-
-Sends a natural language query to Gemini and returns dashboard data.
-
-**Request:**
+Accepts a natural language query and returns chart data + KPIs + narrative.
 
 ```json
 {
   "prompt": "Show me revenue by region",
-  "dataSource": "local",
-  "conversationHistory": [],
-  "localSchema": ["product", "region", "revenue", "date"]
+  "dataSource": "server",
+  "conversationHistory": []
 }
 ```
 
-**Response (local mode):**
-
-```json
-{
-  "success": true,
-  "mode": "local",
-  "queryPlan": {
-    "charts": [...],
-    "kpis": [...],
-    "summary": "Revenue breakdown by region"
-  }
-}
-```
-
----
-
-## 🌙 Dark Mode
-
-Toggle dark mode from the sidebar or Settings page. Your preference is saved to localStorage.
-
----
-
-## 📦 Deployment
-
-Deploy to Vercel:
-
-```bash
-npm run build
-```
-
-Then push to GitHub and connect to [Vercel](https://vercel.com). Set environment variables in the Vercel dashboard.
-
----
+Response includes: `metrics`, `charts`, `summary`, `followUpSuggestions`
 
 ## 📄 License
 

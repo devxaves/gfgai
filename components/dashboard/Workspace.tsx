@@ -6,251 +6,315 @@ import { DynamicChart } from "@/components/charts/DynamicChart";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { ErrorCard } from "@/components/dashboard/ErrorCard";
 import { EXAMPLE_PROMPTS } from "@/components/dashboard/QueryInput";
-import { LogoBadge } from "@/components/layout/LogoBadge";
 import { executeLocalQuery, getLocalSchema } from "@/lib/localQueryEngine";
-import { Sparkles, ArrowRight } from "lucide-react";
+import {
+  BarChart3, Sparkles, ArrowRight, MessageCircle, Download,
+  Maximize2, BarChart, LineChart, PieChart, TrendingUp,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { DashboardChart, DashboardMetric } from "@/types";
+import { useState, useCallback, useRef } from "react";
+import type { DashboardChart, DashboardMetric, ChartType } from "@/types";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
-};
+const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
+const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } } };
+
+const CHART_ICONS: Record<string, typeof BarChart> = { bar: BarChart, line: LineChart, pie: PieChart, area: TrendingUp, stacked: BarChart3 };
+const SWITCHABLE_TYPES: ChartType[] = ['bar', 'line', 'pie', 'area'];
 
 export function Workspace() {
   const {
-    isQuerying, metrics, components, summary, error, dataSource,
-    currentQuery, conversationHistory, setQuerying, addQuery,
-    setDashboardData, uploadedSchema, addConversation, setError,
+    isQuerying, metrics, components, summary, narrative, error, dataSource,
+    currentQuery, conversationHistory, followUpSuggestions, clarification,
+    setQuerying, addQuery, setDashboardData, uploadedSchema,
+    addConversation, setError, setClarification,
   } = useDashboardStore();
 
-  const handleExamplePrompt = async (prompt: string) => {
+  const [chartTypeOverrides, setChartTypeOverrides] = useState<Record<string, ChartType>>({});
+  const [expandedChart, setExpandedChart] = useState<string | null>(null);
+
+  const handleExamplePrompt = useCallback(async (prompt: string) => {
     setQuerying(true);
     setError(null);
+    setClarification(null);
     addQuery(prompt);
 
     try {
       const schema = dataSource === "local" ? (uploadedSchema.length > 0 ? uploadedSchema : await getLocalSchema()) : [];
-
       const res = await fetch("/api/analyze-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          dataSource,
-          conversationHistory: [],
-          localSchema: schema,
-        }),
+        body: JSON.stringify({ prompt, dataSource, conversationHistory: [], localSchema: schema }),
       });
-
       const json = await res.json();
 
       if (!json.success) {
         setError(json.error || "Failed to analyze query");
-        addConversation({
-          id: Date.now().toString(),
-          query: prompt,
-          timestamp: Date.now(),
-          dashboard: null,
-          error: json.error,
-        });
+        addConversation({ id: Date.now().toString(), query: prompt, timestamp: Date.now(), dashboard: null, error: json.error });
+        return;
+      }
+
+      if (json.mode === 'clarification') {
+        setClarification(json.clarification);
+        setDashboardData([], [], '', '', json.followUpSuggestions || []);
         return;
       }
 
       let metricsData: DashboardMetric[] = [];
       let chartsData: DashboardChart[] = [];
       let summaryText = "";
+      let followUps: string[] = [];
 
       if (json.mode === "local") {
         const plan = json.queryPlan;
         summaryText = plan.summary || "";
-
+        followUps = plan.followUpSuggestions || [];
         chartsData = await Promise.all(
-          plan.charts.map(async (chart: any) => {
-            const data = await executeLocalQuery({
-              groupBy: chart.dimension,
-              metric: chart.metric,
-              filters: chart.filters,
-              sortOrder: "desc",
-              limit: 20,
-            });
+          plan.charts.map(async (chart: DashboardChart & { metric?: string; dimension?: string; filters?: Record<string, string> }) => {
+            const data = await executeLocalQuery({ groupBy: chart.dimension, metric: chart.metric, filters: chart.filters, sortOrder: "desc", limit: 20 });
             return { ...chart, data };
           })
         );
-
-        metricsData = await Promise.all(
-          plan.kpis.map(async (kpi: any) => {
-            const result = await executeLocalQuery({ metric: kpi.expression });
-            const value = result[0]?.value ?? 0;
-            return {
-              title: kpi.title,
-              value: typeof value === "number" ? value.toLocaleString() : value,
-              trendPositive: true,
-              trend: "Local data",
-            };
-          })
-        );
+        metricsData = (plan.kpis || []).map((kpi: { label?: string; value?: string; trend?: string }) => ({
+          title: kpi.label || '', value: kpi.value || '—', trend: kpi.trend || '', trendPositive: true,
+        }));
       } else {
         metricsData = json.data?.metrics || [];
         chartsData = json.data?.charts || [];
         summaryText = json.data?.summary || "";
+        followUps = json.data?.followUpSuggestions || [];
       }
 
-      setDashboardData(metricsData, chartsData, summaryText);
-      addConversation({
-        id: Date.now().toString(),
-        query: prompt,
-        timestamp: Date.now(),
-        dashboard: { metrics: metricsData, charts: chartsData, summary: summaryText },
-      });
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setQuerying(false);
-    }
+      setDashboardData(metricsData, chartsData, summaryText, summaryText, followUps);
+      addConversation({ id: Date.now().toString(), query: prompt, timestamp: Date.now(), dashboard: { metrics: metricsData, charts: chartsData, summary: summaryText } });
+    } catch { setError("An unexpected error occurred. Please try again."); }
+    finally { setQuerying(false); }
+  }, [dataSource, uploadedSchema, setQuerying, setError, setClarification, addQuery, setDashboardData, addConversation, conversationHistory]);
+
+  const handleChartTypeSwitch = (chartId: string, newType: ChartType) => {
+    setChartTypeOverrides(prev => ({ ...prev, [chartId]: newType }));
+  };
+
+  const handleDownloadChart = (chartId: string) => {
+    const el = document.getElementById(`chart-${chartId}`);
+    if (!el) return;
+    // Use canvas2image approach via SVG
+    const svg = el.querySelector('svg');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
+      ctx?.scale(2, 2);
+      ctx?.drawImage(img, 0, 0);
+      const link = document.createElement('a');
+      link.download = `insightai-chart-${chartId}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-5">
 
+      {/* Dashboard Header */}
       {(currentQuery || summary) && (
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
-              {currentQuery || "Dashboard"}
-            </h2>
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 truncate">{currentQuery || "Dashboard"}</h2>
             {summary && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                {summary}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span className="truncate">{summary}</span>
               </p>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             {conversationHistory.length > 0 && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                {conversationHistory.length} queries in session
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <MessageCircle className="w-3 h-3" />{conversationHistory.length} queries
               </span>
             )}
-            <span className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full">
-              <span className={`w-2 h-2 rounded-full mr-2 ${dataSource === 'database' ? 'bg-green-500' : 'bg-blue-500'}`}></span>
-              {dataSource === 'database' ? 'MongoDB' : 'Local CSV'}
+            <span className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full">
+              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${dataSource === 'server' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+              {dataSource === 'server' ? 'Sales Data' : 'Local CSV'}
             </span>
           </div>
-        </div>
+        </motion.div>
       )}
 
       <AnimatePresence mode="wait">
         {isQuerying && (
-          <motion.div key="loading"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <SkeletonDashboard />
           </motion.div>
         )}
 
         {!isQuerying && error && (
-          <motion.div key="error"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <ErrorCard message={error} />
+          <motion.div key="error" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <ErrorCard message={error} onRetry={currentQuery ? () => handleExamplePrompt(currentQuery) : undefined} />
           </motion.div>
         )}
 
-        {!isQuerying && !error && components.length > 0 && (
-          <motion.div key="dashboard"
-            variants={container} initial="hidden" animate="show"
-            className="space-y-6"
-          >
+        {!isQuerying && clarification && (
+          <motion.div key="clarification" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <MessageCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">I need a bit more info</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{clarification}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {!isQuerying && !error && !clarification && components.length > 0 && (
+          <motion.div key="dashboard" variants={container} initial="hidden" animate="show" className="space-y-5">
+
+            {/* KPI Cards */}
             {metrics.length > 0 && (
-              <motion.div variants={item}
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-              >
+              <motion.div variants={item} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {metrics.map((metric, idx) => (
                   <KPICard key={idx} {...metric} index={idx} />
                 ))}
               </motion.div>
             )}
 
-            <motion.div variants={item}
-              className={`grid grid-cols-1 ${components.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}
-            >
-              {components.map((chart) => (
-                <motion.div
-                  key={chart.id}
-                  variants={item}
-                  className="group p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-[380px] hover:shadow-lg transition-shadow duration-300"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{chart.title}</h3>
-                      {chart.subtitle && (
-                        <p className="text-xs text-gray-400 mt-0.5">{chart.subtitle}</p>
-                      )}
+            {/* Charts */}
+            <motion.div variants={item} className={`grid grid-cols-1 ${components.length > 1 ? 'lg:grid-cols-2' : ''} gap-5`}>
+              {components.map((chart) => {
+                const displayType = chartTypeOverrides[chart.id] || chart.type;
+                const ChartIcon = CHART_ICONS[displayType] || BarChart;
+                return (
+                  <motion.div key={chart.id} variants={item} id={`chart-${chart.id}`}
+                    className="group p-5 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-[360px] hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">{chart.title}</h3>
+                        {chart.subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{chart.subtitle}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleDownloadChart(chart.id)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400" title="Download PNG">
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setExpandedChart(chart.id)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400" title="Expand">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-md uppercase tracking-wider">
-                      {chart.type}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-h-0 relative">
-                    <DynamicChart
-                      type={chart.type as any}
-                      data={chart.data}
-                      xAxisKey={chart.xAxisKey}
-                      series={chart.series}
-                    />
-                  </div>
-                </motion.div>
-              ))}
+                    {/* Chart type switcher */}
+                    <div className="flex items-center gap-0.5 mb-3">
+                      {SWITCHABLE_TYPES.map(t => {
+                        const Icon = CHART_ICONS[t] || BarChart;
+                        return (
+                          <button key={t} onClick={() => handleChartTypeSwitch(chart.id, t)}
+                            className={`p-1 rounded ${displayType === t ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}
+                            title={t}>
+                            <Icon className="w-3 h-3" />
+                          </button>
+                        );
+                      })}
+                      <span className="ml-1.5 text-[10px] text-gray-400 uppercase tracking-wider"><ChartIcon className="w-3 h-3 inline mr-0.5" />{displayType}</span>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                      <DynamicChart type={displayType as ChartType} data={chart.data} xAxisKey={chart.xAxisKey} series={chart.series} />
+                    </div>
+                  </motion.div>
+                );
+              })}
             </motion.div>
+
+            {/* Narrative */}
+            {(narrative || summary) && (
+              <motion.div variants={item} className="p-5 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">AI Insight</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{narrative || summary}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Follow-up suggestion chips */}
+            {followUpSuggestions.length > 0 && (
+              <motion.div variants={item} className="flex flex-wrap gap-2">
+                <span className="text-xs text-gray-400 self-center mr-1">You might also ask:</span>
+                {followUpSuggestions.map((suggestion, i) => (
+                  <button key={i} onClick={() => handleExamplePrompt(suggestion)}
+                    className="text-xs px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    {suggestion}
+                  </button>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         )}
 
-        {!isQuerying && !error && components.length === 0 && (
-          <motion.div key="empty"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          >
+        {/* Empty state */}
+        {!isQuerying && !error && !clarification && components.length === 0 && !followUpSuggestions.length && (
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <EmptyState onPromptClick={handleExamplePrompt} />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Fullscreen chart modal */}
+      {expandedChart && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setExpandedChart(null)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            {(() => {
+              const chart = components.find(c => c.id === expandedChart);
+              if (!chart) return null;
+              const displayType = chartTypeOverrides[chart.id] || chart.type;
+              return (
+                <>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 mb-4">{chart.title}</h3>
+                  <div className="h-[500px]">
+                    <DynamicChart type={displayType as ChartType} data={chart.data} xAxisKey={chart.xAxisKey} series={chart.series} />
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function EmptyState({ onPromptClick }: { onPromptClick: (prompt: string) => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-8">
-      <LogoBadge size="lg" />
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 mt-6">Welcome to Vizly AI</h3>
-      <p className="text-gray-500 dark:text-gray-400 text-center max-w-lg text-sm leading-relaxed mb-8">
-        Ask questions in natural language and get instant dashboards with charts and insights.
-        Try one of the examples below or type your own query.
+    <div className="flex flex-col items-center justify-center py-12 px-6">
+      <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/20">
+        <BarChart3 className="w-8 h-8 text-white" />
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1.5">Welcome to InsightAI</h3>
+      <p className="text-gray-500 dark:text-gray-400 text-center max-w-md text-sm mb-6">
+        Ask questions in natural language and get instant dashboards with charts, KPIs, and AI-powered insights.
       </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
-        {EXAMPLE_PROMPTS.map((prompt) => (
-          <button
-            key={prompt}
-            onClick={() => onPromptClick(prompt)}
-            className="group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-200"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 shrink-0 bg-blue-50 dark:bg-blue-950/50 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-              </div>
-              <span className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">{prompt}</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
+        {EXAMPLE_PROMPTS.slice(0, 4).map((prompt) => (
+          <button key={prompt} onClick={() => onPromptClick(prompt)}
+            className="group flex items-center gap-3 text-left px-3.5 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all">
+            <div className="w-7 h-7 shrink-0 bg-indigo-50 dark:bg-indigo-950/50 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
             </div>
-            <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors shrink-0" />
+            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate flex-1">{prompt}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-indigo-500 transition-colors shrink-0" />
           </button>
         ))}
       </div>
-
-      <p className="mt-8 text-xs text-gray-400 dark:text-gray-600 text-center max-w-sm">
-        💡 You can upload your own CSV from the header, or use the seeded MongoDB data.
-        After getting results, ask follow-up questions to refine your dashboard.
+      <p className="mt-6 text-xs text-gray-400 dark:text-gray-600 text-center max-w-sm">
+        💡 Upload a CSV file to analyze your own data, or use the built-in sales dataset.
+        Ask follow-up questions to refine your dashboard.
       </p>
     </div>
   );
