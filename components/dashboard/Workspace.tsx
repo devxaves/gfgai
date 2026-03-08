@@ -5,14 +5,15 @@ import { KPICard } from "@/components/charts/KPICard";
 import { DynamicChart } from "@/components/charts/DynamicChart";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { ErrorCard } from "@/components/dashboard/ErrorCard";
-import { EXAMPLE_PROMPTS } from "@/components/dashboard/QueryInput";
+import { ExecutedQueryViewer, EXAMPLE_PROMPTS } from "@/components/dashboard/QueryInput";
 import { executeLocalQuery, getLocalSchema } from "@/lib/localQueryEngine";
 import {
   BarChart3, Sparkles, ArrowRight, MessageCircle, Download,
   Maximize2, BarChart, LineChart, PieChart, TrendingUp,
+  AlertTriangle, HelpCircle, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { DashboardChart, DashboardMetric, ChartType } from "@/types";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
@@ -24,9 +25,9 @@ const SWITCHABLE_TYPES: ChartType[] = ['bar', 'line', 'pie', 'area'];
 export function Workspace() {
   const {
     isQuerying, metrics, components, summary, narrative, error, dataSource,
-    currentQuery, conversationHistory, followUpSuggestions, clarification,
+    currentQuery, conversationHistory, followUpSuggestions, clarification, cannotAnswer,
     setQuerying, addQuery, setDashboardData, uploadedSchema,
-    addConversation, setError, setClarification,
+    addConversation, setError, setClarification, setCannotAnswer, setExecutedQuery,
   } = useDashboardStore();
 
   const [chartTypeOverrides, setChartTypeOverrides] = useState<Record<string, ChartType>>({});
@@ -36,20 +37,42 @@ export function Workspace() {
     setQuerying(true);
     setError(null);
     setClarification(null);
+    setCannotAnswer(null);
     addQuery(prompt);
 
     try {
       const schema = dataSource === "local" ? (uploadedSchema.length > 0 ? uploadedSchema : await getLocalSchema()) : [];
+      const chatHistory = conversationHistory.slice(-3).flatMap(c => [
+        { role: "user", content: c.query },
+        { role: "assistant", content: c.dashboard ? `Generated dashboard: ${c.dashboard.summary || c.query}` : "Error" },
+      ]);
+
       const res = await fetch("/api/analyze-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, dataSource, conversationHistory: [], localSchema: schema }),
+        body: JSON.stringify({ prompt, dataSource, conversationHistory: chatHistory, localSchema: schema }),
       });
       const json = await res.json();
+
+      if (json.rawQueryPlan) {
+        setExecutedQuery({
+          prompt,
+          charts: json.rawQueryPlan.charts || [],
+          kpis: json.rawQueryPlan.kpis || [],
+          rawJson: json.rawQueryPlan.rawJson || '',
+        });
+      }
 
       if (!json.success) {
         setError(json.error || "Failed to analyze query");
         addConversation({ id: Date.now().toString(), query: prompt, timestamp: Date.now(), dashboard: null, error: json.error });
+        return;
+      }
+
+      if (json.mode === 'cannotAnswer') {
+        setCannotAnswer(json.reason);
+        setDashboardData([], [], '', '', json.followUpSuggestions || []);
+        addConversation({ id: Date.now().toString(), query: prompt, timestamp: Date.now(), dashboard: null, error: json.reason });
         return;
       }
 
@@ -88,7 +111,7 @@ export function Workspace() {
       addConversation({ id: Date.now().toString(), query: prompt, timestamp: Date.now(), dashboard: { metrics: metricsData, charts: chartsData, summary: summaryText } });
     } catch { setError("An unexpected error occurred. Please try again."); }
     finally { setQuerying(false); }
-  }, [dataSource, uploadedSchema, setQuerying, setError, setClarification, addQuery, setDashboardData, addConversation, conversationHistory]);
+  }, [dataSource, uploadedSchema, setQuerying, setError, setClarification, setCannotAnswer, setExecutedQuery, addQuery, setDashboardData, addConversation, conversationHistory]);
 
   const handleChartTypeSwitch = (chartId: string, newType: ChartType) => {
     setChartTypeOverrides(prev => ({ ...prev, [chartId]: newType }));
@@ -97,7 +120,6 @@ export function Workspace() {
   const handleDownloadChart = (chartId: string) => {
     const el = document.getElementById(`chart-${chartId}`);
     if (!el) return;
-    // Use canvas2image approach via SVG
     const svg = el.querySelector('svg');
     if (!svg) return;
     const svgData = new XMLSerializer().serializeToString(svg);
@@ -146,6 +168,9 @@ export function Workspace() {
         </motion.div>
       )}
 
+      {/* Executed Query Viewer */}
+      <ExecutedQueryViewer />
+
       <AnimatePresence mode="wait">
         {isQuerying && (
           <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -156,6 +181,46 @@ export function Workspace() {
         {!isQuerying && error && (
           <motion.div key="error" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <ErrorCard message={error} onRetry={currentQuery ? () => handleExamplePrompt(currentQuery) : undefined} />
+          </motion.div>
+        )}
+
+        {/* Cannot Answer — Hallucination Prevention */}
+        {!isQuerying && cannotAnswer && (
+          <motion.div key="cannotAnswer" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="p-6 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">Cannot Generate Dashboard</p>
+                <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">{cannotAnswer}</p>
+                <div className="mt-3 p-3 bg-orange-100/50 dark:bg-orange-900/20 rounded-lg border border-orange-200/50 dark:border-orange-800/30">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-orange-500" />
+                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Available Data Columns</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {['order_id', 'date', 'product', 'category', 'region', 'sales_rep', 'revenue', 'cost', 'units_sold', 'customer_segment'].map(col => (
+                      <span key={col} className="text-[10px] px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded font-mono border border-orange-200/50 dark:border-gray-700">{col}</span>
+                    ))}
+                  </div>
+                </div>
+                {followUpSuggestions.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-orange-500 mb-2">Try these instead:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {followUpSuggestions.map((s, i) => (
+                        <button key={i} onClick={() => handleExamplePrompt(s)}
+                          className="text-xs px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-200 dark:border-gray-700 rounded-full hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -172,7 +237,7 @@ export function Workspace() {
           </motion.div>
         )}
 
-        {!isQuerying && !error && !clarification && components.length > 0 && (
+        {!isQuerying && !error && !clarification && !cannotAnswer && components.length > 0 && (
           <motion.div key="dashboard" variants={container} initial="hidden" animate="show" className="space-y-5">
 
             {/* KPI Cards */}
@@ -188,6 +253,7 @@ export function Workspace() {
             <motion.div variants={item} className={`grid grid-cols-1 ${components.length > 1 ? 'lg:grid-cols-2' : ''} gap-5`}>
               {components.map((chart) => {
                 const displayType = chartTypeOverrides[chart.id] || chart.type;
+                const recommendedType = (chart as DashboardChart & { recommendedType?: string }).recommendedType || chart.type;
                 const ChartIcon = CHART_ICONS[displayType] || BarChart;
                 return (
                   <motion.div key={chart.id} variants={item} id={`chart-${chart.id}`}
@@ -206,19 +272,27 @@ export function Workspace() {
                         </button>
                       </div>
                     </div>
-                    {/* Chart type switcher */}
+                    {/* Chart type switcher with recommended dot */}
                     <div className="flex items-center gap-0.5 mb-3">
                       {SWITCHABLE_TYPES.map(t => {
                         const Icon = CHART_ICONS[t] || BarChart;
+                        const isRecommended = t === recommendedType;
                         return (
-                          <button key={t} onClick={() => handleChartTypeSwitch(chart.id, t)}
-                            className={`p-1 rounded ${displayType === t ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}
-                            title={t}>
-                            <Icon className="w-3 h-3" />
-                          </button>
+                          <div key={t} className="relative">
+                            <button onClick={() => handleChartTypeSwitch(chart.id, t)}
+                              className={`p-1.5 rounded ${displayType === t ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}
+                              title={`${t}${isRecommended ? ' (recommended)' : ''}`}>
+                              <Icon className="w-3.5 h-3.5" />
+                            </button>
+                            {isRecommended && (
+                              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-white dark:border-gray-900" title="AI Recommended" />
+                            )}
+                          </div>
                         );
                       })}
-                      <span className="ml-1.5 text-[10px] text-gray-400 uppercase tracking-wider"><ChartIcon className="w-3 h-3 inline mr-0.5" />{displayType}</span>
+                      <span className="ml-2 text-[10px] text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                        <ChartIcon className="w-3 h-3" />{displayType}
+                      </span>
                     </div>
                     <div className="flex-1 min-h-0">
                       <DynamicChart type={displayType as ChartType} data={chart.data} xAxisKey={chart.xAxisKey} series={chart.series} />
@@ -259,7 +333,7 @@ export function Workspace() {
         )}
 
         {/* Empty state */}
-        {!isQuerying && !error && !clarification && components.length === 0 && !followUpSuggestions.length && (
+        {!isQuerying && !error && !clarification && !cannotAnswer && components.length === 0 && !followUpSuggestions.length && (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <EmptyState onPromptClick={handleExamplePrompt} />
           </motion.div>
@@ -269,7 +343,10 @@ export function Workspace() {
       {/* Fullscreen chart modal */}
       {expandedChart && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setExpandedChart(null)}>
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-auto relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setExpandedChart(null)} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+              <X className="w-4 h-4" />
+            </button>
             {(() => {
               const chart = components.find(c => c.id === expandedChart);
               if (!chart) return null;

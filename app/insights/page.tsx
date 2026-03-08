@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
+import { useDashboardStore } from "@/store/useDashboardStore";
+import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, Send, Sparkles, User, Database, BarChart3, Rows3, Columns3, Tag } from "lucide-react";
 
 interface Insight {
   title: string;
@@ -11,10 +12,27 @@ interface Insight {
   trend: 'up' | 'down' | 'neutral';
 }
 
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}
+
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Chat
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  const { dataSource, activeDatasetName, uploadedRowCount, uploadedSchema, datasets, activeDatasetId } = useDashboardStore();
+
+  const activeDs = datasets.find(d => d.id === activeDatasetId);
 
   const fetchInsights = async () => {
     setLoading(true);
@@ -24,8 +42,9 @@ export default function InsightsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: "Identify the top 5 business insights a CEO should know from this sales dataset. Focus on revenue trends, top performers, underperformers, and growth opportunities. Return JSON with 'kpis' array where each item has: label, value, description, trend (up/down/neutral).",
-          dataSource: "server",
+          prompt: "Identify the top 5 business insights a CEO should know from this sales dataset. Focus on revenue trends, top performers, underperformers, and growth opportunities.",
+          dataSource,
+          localSchema: dataSource === 'local' ? uploadedSchema : [],
         }),
       });
       const json = await res.json();
@@ -50,6 +69,59 @@ export default function InsightsPage() {
 
   useEffect(() => { fetchInsights(); }, []);
 
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [chatMessages]);
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: chatInput, timestamp: Date.now() };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const chatHistory = chatMessages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+      const res = await fetch("/api/analyze-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: chatInput,
+          dataSource,
+          conversationHistory: chatHistory,
+          localSchema: dataSource === 'local' ? uploadedSchema : [],
+        }),
+      });
+      const json = await res.json();
+
+      let response = "I couldn't generate a response. Please try again.";
+      if (json.success) {
+        if (json.data?.summary) response = json.data.summary;
+        else if (json.mode === 'cannotAnswer') response = json.reason || "This query cannot be answered with the current dataset.";
+        else if (json.mode === 'clarification') response = json.clarification || "Could you be more specific?";
+      } else {
+        response = json.error || "Something went wrong.";
+      }
+
+      setChatMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: response,
+        timestamp: Date.now(),
+      }]);
+    } catch {
+      setChatMessages(prev => [...prev, {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: "An error occurred. Please try again.",
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const TrendIcon = { up: TrendingUp, down: TrendingDown, neutral: Minus };
   const trendColor = { up: 'text-emerald-600', down: 'text-red-500', neutral: 'text-gray-400' };
   const trendBg = { up: 'bg-emerald-50 dark:bg-emerald-950/30', down: 'bg-red-50 dark:bg-red-950/30', neutral: 'bg-gray-50 dark:bg-gray-900' };
@@ -66,7 +138,7 @@ export default function InsightsPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900 dark:text-gray-50">AI Insights</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Auto-generated from your dataset</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Real-time analysis of your dataset</p>
             </div>
           </div>
           <button onClick={fetchInsights} disabled={loading}
@@ -75,44 +147,157 @@ export default function InsightsPage() {
           </button>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
-          {error && (
-            <div className="max-w-2xl mx-auto mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p>
-            </div>
-          )}
+        <main className="flex-1 overflow-auto">
+          <div className="flex flex-col lg:flex-row h-full">
+            {/* Left: Insights */}
+            <div className="flex-1 overflow-auto p-6 space-y-5">
 
-          {loading ? (
-            <div className="max-w-2xl mx-auto space-y-3">
-              {[0, 1, 2, 3, 4].map(i => (
-                <div key={i} className="p-5 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
-                  <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
-                  <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded" />
+              {/* Active Dataset Summary */}
+              <div className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+                    <Database className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">{activeDs?.name || activeDatasetName || 'Sales Dataset 2024'}</h3>
+                    <p className="text-[10px] text-gray-400">{dataSource === 'server' ? 'Built-in Dataset' : 'Local Upload'}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="max-w-2xl mx-auto space-y-3">
-              {insights.map((insight, i) => {
-                const Icon = TrendIcon[insight.trend] || Minus;
-                return (
-                  <div key={i} className={`p-5 rounded-xl border border-gray-100 dark:border-gray-800 ${trendBg[insight.trend]} transition-all hover:shadow-sm`}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">{insight.title}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{insight.insight}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-lg font-bold text-gray-900 dark:text-gray-50">{insight.metric}</span>
-                        <Icon className={`w-4 h-4 ${trendColor[insight.trend]}`} />
-                      </div>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="flex items-center gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Rows3 className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{(activeDs?.rowCount || uploadedRowCount || 155).toLocaleString()} rows</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <Columns3 className="w-3.5 h-3.5 text-violet-500" />
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{(activeDs?.columns.length || 10)} cols</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <BarChart3 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{activeDs?.format?.toUpperCase() || 'JSON'}</span>
+                  </div>
+                </div>
+                {activeDs?.tags && (
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="w-3 h-3 text-gray-400" />
+                    <div className="flex flex-wrap gap-1">
+                      {activeDs.tags.map(tag => (
+                        <span key={tag} className="text-[10px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-md font-medium">{tag}</span>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </div>
+
+              {error && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p>
+                </div>
+              )}
+
+              {loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <div key={i} className="p-5 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
+                      <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
+                      <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {insights.map((insight, i) => {
+                    const Icon = TrendIcon[insight.trend] || Minus;
+                    return (
+                      <div key={i} className={`p-5 rounded-xl border border-gray-100 dark:border-gray-800 ${trendBg[insight.trend]} transition-all hover:shadow-sm`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">{insight.title}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{insight.insight}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-lg font-bold text-gray-900 dark:text-gray-50">{insight.metric}</span>
+                            <Icon className={`w-4 h-4 ${trendColor[insight.trend]}`} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Right: Chat Panel */}
+            <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-50">Ask about this dataset</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">Get AI-powered answers about your data</p>
+              </div>
+
+              <div ref={chatRef} className="flex-1 overflow-auto p-4 space-y-3 min-h-[200px]">
+                {chatMessages.length === 0 && (
+                  <div className="text-center py-6">
+                    <Sparkles className="w-6 h-6 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                    <p className="text-xs text-gray-400">Ask questions like:</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">&quot;What is the best performing region?&quot;</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">&quot;Summarize the revenue trends&quot;</p>
+                  </div>
+                )}
+
+                {chatMessages.map(msg => (
+                  <div key={msg.id} className={`flex items-start gap-2 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                    {msg.role === 'assistant' && (
+                      <div className="w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center shrink-0">
+                        <Sparkles className="w-3 h-3 text-amber-600" />
+                      </div>
+                    )}
+                    <div className={`max-w-[85%] px-3 py-2 rounded-xl text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-indigo-600 text-white rounded-br-sm'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-sm'
+                    }`}>
+                      {msg.content}
+                    </div>
+                    {msg.role === 'user' && (
+                      <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
+                        <User className="w-3 h-3 text-gray-500" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {chatLoading && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                      <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
+                    </div>
+                    <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-xl text-sm text-gray-400">Thinking...</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleChatSend(); } }}
+                    placeholder="Ask about the data..."
+                    className="flex-1 text-sm px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 placeholder:text-gray-400"
+                    disabled={chatLoading}
+                  />
+                  <button onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}
+                    className="p-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 transition-all">
+                    {chatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>

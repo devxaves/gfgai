@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGeminiClient } from '@/lib/gemini';
 import { executeQuery, computeKPIs, SCHEMA_TEXT, validateQueryColumns } from '@/lib/queryExecutor';
-import type { QueryFilter, QueryPlan } from '@/lib/queryExecutor';
+import type { QueryPlan } from '@/lib/queryExecutor';
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6'];
 
@@ -13,7 +13,6 @@ const GEMINI_MODELS = [
 
 async function callGemini(ai: ReturnType<typeof getGeminiClient>, prompt: string) {
   let lastError: Error | null = null;
-
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -25,9 +24,7 @@ async function callGemini(ai: ReturnType<typeof getGeminiClient>, prompt: string
           await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
           continue;
         }
-        if (error.status === 404 || error.message?.includes('not found')) {
-          break; // try next model
-        }
+        if (error.status === 404 || error.message?.includes('not found')) break;
         throw err;
       }
     }
@@ -43,9 +40,9 @@ Your job:
 1. Understand the business question
 2. Determine what data to retrieve and how to group/aggregate it
 3. Choose the most appropriate chart type:
-   - line: time-series, trends over months/quarters
-   - bar: comparisons across categories, rankings
-   - pie: parts of a whole, percentage breakdowns
+   - line: time-series, trends over months/quarters (RECOMMENDED for: monthly trends, quarterly revenue, time comparisons)
+   - bar: comparisons across categories, rankings (RECOMMENDED for: revenue by region, top products, category comparisons)
+   - pie: parts of a whole, percentage breakdowns (RECOMMENDED for: market share, distribution, percentage breakdowns)
    - stacked: multiple categories over time or groups
    - area: cumulative trends
 4. Return a structured JSON response
@@ -53,12 +50,14 @@ Your job:
 ALWAYS return this exact JSON structure (no markdown, no code fences):
 {
   "understood": true,
-  "clarification_needed": null,
+  "cannotAnswer": false,
+  "cannotAnswerReason": null,
   "charts": [
     {
       "id": "chart_1",
       "title": "descriptive chart title",
       "chartType": "bar",
+      "recommendedChartType": "bar",
       "description": "one line explaining what this chart shows",
       "query": {
         "filters": [{"column": "region", "operator": "eq", "value": "North"}],
@@ -82,17 +81,21 @@ ALWAYS return this exact JSON structure (no markdown, no code fences):
   ]
 }
 
-RULES:
+CRITICAL RULES:
 - groupBy supports: any column name, OR "month"/"quarter" for time grouping
 - aggregation.function: sum, count, avg, max, min
 - aggregation.column: revenue, cost, units_sold (numeric columns only)
 - For time trends, use groupBy "month" with chartType "line"
 - For profit, use revenue minus cost (aggregation on revenue)
-- If the question cannot be answered, set understood to false
+- recommendedChartType: the OPTIMAL chart type for this specific data — always set this
+- If the question CANNOT be answered from the available data (wrong columns, impossible query, unrelated topic):
+  Set "understood": false, "cannotAnswer": true, "cannotAnswerReason": "clear explanation of why"
+  AND return empty charts and kpis arrays
+- If the query is vague but answerable, make a reasonable interpretation and note it in the narrative
 - Generate 1-3 charts and 2-4 KPIs
 - KPI values should describe WHAT to compute, not actual numbers
 - followUpSuggestions: 3 related follow-up questions
-- NEVER invent columns not in the schema
+- NEVER invent columns not in the schema. If user asks about data not in schema, set cannotAnswer=true
 - Return ONLY valid JSON`;
 
 export async function POST(req: Request) {
@@ -104,7 +107,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Please enter a question about your data.' }, { status: 400 });
     }
 
-    // Build conversation context
     let context = '';
     if (conversationHistory?.length > 0) {
       context = '\n\nPrevious conversation:\n' +
@@ -112,7 +114,6 @@ export async function POST(req: Request) {
         '\n\nThe user is asking a follow-up. Maintain context from previous queries.';
     }
 
-    // For local CSV mode, swap schema
     let systemPrompt = SYSTEM_PROMPT;
     if (dataSource === 'local' && localSchema?.length > 0) {
       systemPrompt = systemPrompt.replace(SCHEMA_TEXT, `Uploaded CSV dataset with columns: ${localSchema.join(', ')}\nThe dataset was uploaded by the user. Use only these columns.`);
@@ -140,11 +141,14 @@ export async function POST(req: Request) {
 
     let parsed: {
       understood?: boolean;
+      cannotAnswer?: boolean;
+      cannotAnswerReason?: string | null;
       clarification_needed?: string | null;
       charts?: Array<{
         id?: string;
         title?: string;
         chartType?: string;
+        recommendedChartType?: string;
         description?: string;
         query?: QueryPlan;
         xAxis?: string;
@@ -164,13 +168,33 @@ export async function POST(req: Request) {
       }, { status: 422 });
     }
 
-    // Handle ambiguous queries
-    if (parsed.understood === false) {
+    // Build rawQueryPlan for the "View Executed Query" dropdown
+    const rawQueryPlan = {
+      prompt,
+      model: 'gemini-2.5-flash',
+      charts: (parsed.charts || []).map(c => ({
+        title: c.title,
+        chartType: c.chartType,
+        recommendedChartType: c.recommendedChartType || c.chartType,
+        query: c.query,
+      })),
+      kpis: (parsed.kpis || []).map(k => ({ label: k.label, expression: k.value })),
+      narrative: parsed.narrative,
+      rawJson: cleaned,
+    };
+
+    // Handle cannot answer — hallucination prevention
+    if (parsed.cannotAnswer === true || parsed.understood === false) {
       return NextResponse.json({
         success: true,
-        mode: 'clarification',
-        clarification: parsed.clarification_needed || 'Could you be more specific about what you\'d like to see?',
-        followUpSuggestions: parsed.followUpSuggestions || [],
+        mode: 'cannotAnswer',
+        reason: parsed.cannotAnswerReason || parsed.clarification_needed || 'This query cannot be answered with the available dataset. The data only contains sales information from 2024.',
+        followUpSuggestions: parsed.followUpSuggestions || [
+          'Show me total revenue by region',
+          'What are the top products by units sold?',
+          'Monthly revenue trends for 2024',
+        ],
+        rawQueryPlan,
       });
     }
 
@@ -180,6 +204,7 @@ export async function POST(req: Request) {
         id: chart.id || `chart-${Date.now()}-${idx}`,
         title: chart.title || `Chart ${idx + 1}`,
         type: chart.chartType || 'bar',
+        recommendedType: chart.recommendedChartType || chart.chartType || 'bar',
         description: chart.description || '',
         metric: chart.query?.aggregation ? `${chart.query.aggregation.function}(${chart.query.aggregation.column})` : 'count',
         dimension: chart.query?.groupBy || 'category',
@@ -200,33 +225,45 @@ export async function POST(req: Request) {
           summary: parsed.narrative || '',
           followUpSuggestions: parsed.followUpSuggestions || [],
         },
+        rawQueryPlan,
       });
     }
 
     // Server mode — execute queries against /data/sales.json
     const charts = (parsed.charts || []).map((chart, idx) => {
       const query: QueryPlan = chart.query || {};
-
-      // Validate columns
       const errors = validateQueryColumns(query);
       if (errors.length > 0) {
         console.warn(`[InsightAI] Column validation warnings for chart ${idx}:`, errors);
       }
 
-      const result = executeQuery(query);
+      const queryResult = executeQuery(query);
 
       return {
         id: chart.id || `chart-${Date.now()}-${idx}`,
         title: chart.title || `Chart ${idx + 1}`,
         subtitle: chart.description || '',
         type: chart.chartType || 'bar',
-        data: result.labels.map((label, i) => ({ name: label, value: result.values[i] })),
+        recommendedType: chart.recommendedChartType || chart.chartType || 'bar',
+        data: queryResult.labels.map((label, i) => ({ name: label, value: queryResult.values[i] })),
         xAxisKey: 'name',
         xAxisLabel: chart.xAxis || '',
         yAxisLabel: chart.yAxis || '',
         series: [{ key: 'value', color: CHART_COLORS[idx % CHART_COLORS.length], name: chart.yAxis || 'Value' }],
       };
     });
+
+    // Check for empty results — hallucination safety
+    const allChartsEmpty = charts.every(c => c.data.length === 0);
+    if (allChartsEmpty && charts.length > 0) {
+      return NextResponse.json({
+        success: true,
+        mode: 'cannotAnswer',
+        reason: 'The query returned no data. This might mean the filters are too restrictive or the data doesn\'t match the query criteria.',
+        followUpSuggestions: parsed.followUpSuggestions || ['Show me total revenue by region', 'What are the top products?'],
+        rawQueryPlan,
+      });
+    }
 
     // Compute real KPIs from data
     const kpiData = computeKPIs();
@@ -246,6 +283,7 @@ export async function POST(req: Request) {
         summary: parsed.narrative || '',
         followUpSuggestions: parsed.followUpSuggestions || [],
       },
+      rawQueryPlan,
     });
 
   } catch (error: unknown) {
