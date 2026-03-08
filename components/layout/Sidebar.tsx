@@ -14,7 +14,7 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, darkMode, toggleDarkMode, conversationHistory, clearConversationHistory } = useDashboardStore();
 
   const links = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Data Sources", href: "/sources", icon: Database },
     { name: "Query History", href: "/history", icon: History },
     { name: "Insights", href: "/insights", icon: Lightbulb },

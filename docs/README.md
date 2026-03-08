@@ -1,1 +1,1 @@
-# gfgai
+# Vizly AI

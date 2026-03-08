@@ -52,8 +52,8 @@
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/devxaves/gfgai.git
-   cd gfgai
+   git clone https://github.com/devxaves/Vizly AI.git
+   cd Vizly AI
    ```
 
 2. **Install dependencies:**
@@ -125,7 +125,7 @@
 ## 📁 Project Structure
 
 ```
-gfgai/
+Vizly AI/
 ├── app/
 │   ├── api/analyze-query/   → AI query processing API
 │   ├── history/             → Query history page
