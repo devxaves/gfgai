@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useDashboardStore } from "@/store/useDashboardStore";
 import { executeLocalQuery, getLocalSchema, getLocalData, evaluateLocalMetricExpression, formatLocalMetricValue } from "@/lib/localQueryEngine";
-import { Send, Loader2, Sparkles, Mic, MicOff, ChevronDown, ChevronUp, Code2, Database } from "lucide-react";
+import { Send, Loader2, Sparkles, Mic, MicOff, ChevronDown, ChevronUp, Code2, Database, Volume2, VolumeX } from "lucide-react";
 import type { DashboardChart, DashboardMetric } from "@/types";
 
 export const EXAMPLE_PROMPTS_SALES = [
@@ -47,8 +47,12 @@ export function QueryInput() {
   const [query, setQuery] = useState("");
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [isListening, setIsListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // Ref so the voice callback can call the latest handleQuery without stale closure
+  const handleQueryRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
   const {
     setQuerying, isQuerying, addQuery, setDashboardData,
@@ -101,6 +105,8 @@ export function QueryInput() {
       const text = event.results[0][0].transcript;
       setQuery(text);
       setIsListening(false);
+      // In voice mode, auto-submit immediately
+      if (voiceMode) handleQueryRef.current(text);
     };
     recognition.onerror = () => setIsListening(false);
     recognition.onend = () => setIsListening(false);
@@ -227,6 +233,10 @@ export function QueryInput() {
         timestamp: Date.now(),
         dashboard: { metrics, charts, summary, followUpSuggestions: followUps },
       });
+      // Speak the summary when voice mode is active
+      if (voiceMode && summary) {
+        speak(summary);
+      }
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
@@ -240,6 +250,27 @@ export function QueryInput() {
     handleQuery();
   };
 
+  // Keep ref in sync so voice callback always calls the latest version
+  useEffect(() => { handleQueryRef.current = handleQuery; }, [handleQuery]);
+
+  // Text-to-speech helper
+  const speak = useCallback((text: string) => {
+    if (!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.onstart = () => setIsSpeaking(true);
+    utter.onend   = () => setIsSpeaking(false);
+    utter.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utter);
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -250,46 +281,79 @@ export function QueryInput() {
   const hasExistingDashboard = components.length > 0;
 
   return (
-    <form onSubmit={handleSubmit} className="relative flex items-center w-full max-w-2xl gap-2">
-      <div className="relative flex-1">
-        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none">
-          <Sparkles className="w-4 h-4" />
-        </div>
-        <textarea
-          ref={textareaRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={hasExistingDashboard ? 'Ask a follow-up question...' : ROTATING_PLACEHOLDERS[placeholderIdx]}
-          className={`w-full h-11 pl-10 pr-20 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 shadow-sm transition-all bg-white dark:bg-gray-800 dark:text-gray-100 placeholder:text-gray-400 resize-none overflow-hidden leading-6 ${
-            isQuerying ? 'opacity-60 cursor-not-allowed' : ''
-          }`}
-          disabled={isQuerying}
-          rows={1}
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {query.length > 0 && (
-            <span className="text-[10px] text-gray-300 dark:text-gray-600 tabular-nums mr-1">{query.length}</span>
+    <div className="flex flex-col items-center w-full max-w-2xl gap-2">
+      {/* Voice mode banner */}
+      {voiceMode && (
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          isListening ? 'bg-red-100 dark:bg-red-950/40 text-red-600' :
+          isSpeaking  ? 'bg-violet-100 dark:bg-violet-950/40 text-violet-600' :
+                        'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600'
+        }`}>
+          {isListening ? (
+            <><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />Listening…</>
+          ) : isSpeaking ? (
+            <><span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />Speaking…
+              <button type="button" onClick={stopSpeaking} className="ml-1 underline">stop</button>
+            </>
+          ) : (
+            <><Mic className="w-3 h-3" />Voice mode on — click mic to speak</>
           )}
-          <button
-            type="button"
-            onClick={toggleVoice}
-            className={`p-1.5 rounded-lg transition-all ${isListening ? 'bg-red-100 text-red-600 dark:bg-red-900/30' : 'text-gray-400 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-            disabled={isQuerying}
-            title="Voice input"
-          >
-            {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            type="submit"
-            disabled={isQuerying || !query.trim()}
-            className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all disabled:opacity-40 shadow-sm"
-          >
-            {isQuerying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-          </button>
         </div>
-      </div>
-    </form>
+      )}
+
+      <form onSubmit={handleSubmit} className="relative flex items-center w-full gap-2">
+        <div className="relative flex-1">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={hasExistingDashboard ? 'Ask a follow-up question...' : ROTATING_PLACEHOLDERS[placeholderIdx]}
+            className={`w-full h-11 pl-10 pr-20 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 shadow-sm transition-all bg-white dark:bg-gray-800 dark:text-gray-100 placeholder:text-gray-400 resize-none overflow-hidden leading-6 ${
+              isQuerying ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
+            disabled={isQuerying}
+            rows={1}
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {query.length > 0 && (
+              <span className="text-[10px] text-gray-300 dark:text-gray-600 tabular-nums mr-1">{query.length}</span>
+            )}
+            {/* Voice mode toggle */}
+            <button
+              type="button"
+              onClick={() => { setVoiceMode(v => !v); stopSpeaking(); }}
+              className={`p-1.5 rounded-lg transition-all ${
+                voiceMode ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40' : 'text-gray-400 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title={voiceMode ? 'Disable voice mode' : 'Enable voice mode'}
+            >
+              {voiceMode ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+            {/* Mic button */}
+            <button
+              type="button"
+              onClick={toggleVoice}
+              className={`p-1.5 rounded-lg transition-all ${isListening ? 'bg-red-100 text-red-600 dark:bg-red-900/30' : 'text-gray-400 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              disabled={isQuerying}
+              title="Voice input"
+            >
+              {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              type="submit"
+              disabled={isQuerying || !query.trim()}
+              className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all disabled:opacity-40 shadow-sm"
+            >
+              {isQuerying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
 

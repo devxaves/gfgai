@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useDashboardStore } from "@/store/useDashboardStore";
-import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, Send, Sparkles, User, Database, BarChart3, Rows3, Columns3, Tag } from "lucide-react";
+import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, Send, Sparkles, User, Database, BarChart3, Rows3, Columns3, Tag, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 
 interface Insight {
   title: string;
@@ -33,6 +33,13 @@ export default function InsightsPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [highlightTabByMessage, setHighlightTabByMessage] = useState<Record<string, 'data' | 'conversation'>>({});
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Voice state
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const handleChatSendRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
   const { dataSource, activeDatasetName, uploadedRowCount, uploadedSchema, datasets, activeDatasetId, mongoCollection } = useDashboardStore();
 
@@ -86,10 +93,11 @@ export default function InsightsPage() {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [chatMessages]);
 
-  const handleChatSend = async () => {
-    if (!chatInput.trim() || chatLoading) return;
+  const handleChatSend = async (voiceText?: string) => {
+    const finalInput = voiceText || chatInput;
+    if (!finalInput.trim() || chatLoading) return;
 
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: chatInput, timestamp: Date.now() };
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: finalInput, timestamp: Date.now() };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
     setChatLoading(true);
@@ -100,7 +108,7 @@ export default function InsightsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: chatInput,
+          prompt: finalInput,
           requestType: "insights-chat",
           dataSource,
           activeDatasetId,
@@ -142,6 +150,8 @@ export default function InsightsPage() {
       if (dataHighlights.length > 0 || conversationHighlights.length > 0) {
         setHighlightTabByMessage(prev => ({ ...prev, [assistantId]: dataHighlights.length > 0 ? 'data' : 'conversation' }));
       }
+      // Speak the response when voice mode is active
+      if (voiceMode && response) speak(response);
     } catch {
       setChatMessages(prev => [...prev, {
         id: `a-${Date.now()}`,
@@ -157,6 +167,50 @@ export default function InsightsPage() {
   const TrendIcon = { up: TrendingUp, down: TrendingDown, neutral: Minus };
   const trendColor = { up: 'text-emerald-600', down: 'text-red-500', neutral: 'text-gray-400' };
   const trendBg = { up: 'bg-emerald-50 dark:bg-emerald-950/30', down: 'bg-red-50 dark:bg-red-950/30', neutral: 'bg-gray-50 dark:bg-gray-900' };
+
+  // Keep ref in sync so voice callback always calls the latest version
+  useEffect(() => { handleChatSendRef.current = handleChatSend; });
+
+  const speak = useCallback((text: string) => {
+    if (!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    utter.onstart = () => setIsSpeaking(true);
+    utter.onend   = () => setIsSpeaking(false);
+    utter.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utter);
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }, []);
+
+  const toggleVoice = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const text = event.results[0][0].transcript;
+      setChatInput(text);
+      setIsListening(false);
+      if (voiceMode) handleChatSendRef.current(text);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend   = () => setIsListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, voiceMode]);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 dark:bg-gray-950">
@@ -390,17 +444,59 @@ export default function InsightsPage() {
               </div>
 
               <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+                {/* Voice mode status banner */}
+                {voiceMode && (
+                  <div className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-medium mb-2 ${
+                    isListening ? 'bg-red-50 dark:bg-red-950/30 text-red-600' :
+                    isSpeaking  ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-600' :
+                                  'bg-amber-50 dark:bg-amber-950/30 text-amber-600'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      isListening ? 'bg-red-500 animate-pulse' :
+                      isSpeaking  ? 'bg-violet-500 animate-pulse' : 'bg-amber-500'
+                    }`} />
+                    {isListening ? 'Listening…' : isSpeaking ? (
+                      <>
+                        Speaking…
+                        <button type="button" onClick={stopSpeaking} className="ml-1 underline">stop</button>
+                      </>
+                    ) : 'Voice mode on — click mic to speak'}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
+                  {/* Voice mode toggle */}
+                  <button
+                    type="button"
+                    onClick={() => { setVoiceMode(v => !v); stopSpeaking(); }}
+                    className={`p-2 rounded-lg transition-all shrink-0 ${
+                      voiceMode ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                    title={voiceMode ? 'Disable voice mode' : 'Enable voice mode'}
+                  >
+                    {voiceMode ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </button>
                   <input
                     value={chatInput}
                     onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleChatSend(); } }}
-                    placeholder="Ask about the data..."
+                    placeholder={voiceMode ? 'Click mic or type…' : 'Ask about the data...'}
                     className="flex-1 text-sm px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 placeholder:text-gray-400"
                     disabled={chatLoading}
                   />
-                  <button onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}
-                    className="p-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 transition-all">
+                  {/* Mic button */}
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    disabled={chatLoading}
+                    className={`p-2 rounded-lg transition-all shrink-0 ${
+                      isListening ? 'bg-red-100 dark:bg-red-950/30 text-red-600' : 'text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                    title="Voice input"
+                  >
+                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => handleChatSend()} disabled={chatLoading || !chatInput.trim()}
+                    className="p-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 transition-all shrink-0">
                     {chatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
