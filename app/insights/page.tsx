@@ -49,6 +49,7 @@ export default function InsightsPage() {
           prompt: `Identify the top 5 key business insights from ${activeDs?.name || activeDatasetName || 'this dataset'}. Focus on top performers, underperformers, trends, and growth opportunities.`,
           requestType: "dashboard",
           dataSource,
+          activeDatasetId,
           mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
           localSchema: dataSource === 'local' ? uploadedSchema : [],
         }),
@@ -61,13 +62,14 @@ export default function InsightsPage() {
           metric: String(m.value || ''),
           trend: m.trendPositive === false ? 'down' : m.trendPositive ? 'up' : 'neutral',
         }));
-        setInsights(mapped.length > 0 ? mapped : (dataSource === 'server' ? DEFAULT_INSIGHTS : []));
+        const serverFallback = activeDatasetId === 'preloaded-insurance' ? DEFAULT_INSURANCE_INSIGHTS : DEFAULT_INSIGHTS;
+        setInsights(mapped.length > 0 ? mapped : (dataSource === 'server' ? serverFallback : []));
       } else {
-        setInsights(dataSource === 'server' ? DEFAULT_INSIGHTS : []);
+        setInsights(dataSource === 'server' ? (activeDatasetId === 'preloaded-insurance' ? DEFAULT_INSURANCE_INSIGHTS : DEFAULT_INSIGHTS) : []);
       }
     } catch {
       setError("Failed to generate insights. Please try refreshing.");
-      setInsights(dataSource === 'server' ? DEFAULT_INSIGHTS : []);
+      setInsights(dataSource === 'server' ? (activeDatasetId === 'preloaded-insurance' ? DEFAULT_INSURANCE_INSIGHTS : DEFAULT_INSIGHTS) : []);
     } finally {
       setLoading(false);
     }
@@ -101,6 +103,7 @@ export default function InsightsPage() {
           prompt: chatInput,
           requestType: "insights-chat",
           dataSource,
+          activeDatasetId,
           mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,
           conversationHistory: chatHistory,
           localSchema: dataSource === 'local' ? uploadedSchema : [],
@@ -416,4 +419,12 @@ const DEFAULT_INSIGHTS: Insight[] = [
   { title: "Growth Opportunity", insight: "West region underperforms — consider allocating more resources", metric: "-12%", trend: "down" },
   { title: "Best Sales Rep", insight: "Alice Chen consistently delivers highest quarterly numbers", metric: "$52K", trend: "up" },
   { title: "Profit Margins", insight: "Software category shows highest margins at 80%+ vs 30% for hardware", metric: "82%", trend: "neutral" },
+];
+
+const DEFAULT_INSURANCE_INSIGHTS: Insight[] = [
+  { title: "Top Insurer", insight: "LIC dominates with the highest total claims paid across all years", metric: "#1", trend: "up" },
+  { title: "Settlement Ratio", insight: "Industry average claims settlement ratio is above 97% by count", metric: "97%+", trend: "up" },
+  { title: "Claims Growth", insight: "Total claims intimated increased year-over-year from 2018-19 to 2021-22", metric: "↑ YoY", trend: "up" },
+  { title: "Repudiation Risk", insight: "Some private insurers show higher repudiation ratios — review underwriting", metric: "~2%", trend: "down" },
+  { title: "Pending Claims", insight: "Pending claims ratio at year-end is a key efficiency indicator to watch", metric: "<1%", trend: "neutral" },
 ];

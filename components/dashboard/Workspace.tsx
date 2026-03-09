@@ -7,7 +7,8 @@ import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { ErrorCard } from "@/components/dashboard/ErrorCard";
 import {
   ExecutedQueryViewer,
-  EXAMPLE_PROMPTS,
+  EXAMPLE_PROMPTS_SALES,
+  EXAMPLE_PROMPTS_INSURANCE,
 } from "@/components/dashboard/QueryInput";
 import {
   executeLocalQuery,
@@ -85,7 +86,13 @@ export function Workspace() {
     setCannotAnswer,
     setExecutedQuery,
     mongoCollection,
+    activeDatasetId,
+    activeDatasetName,
   } = useDashboardStore();
+
+  const ACTIVE_EXAMPLE_PROMPTS = activeDatasetId === 'preloaded-insurance'
+    ? EXAMPLE_PROMPTS_INSURANCE
+    : EXAMPLE_PROMPTS_SALES;
 
   const [chartTypeOverrides, setChartTypeOverrides] = useState<
     Record<string, ChartType>
@@ -124,6 +131,7 @@ export function Workspace() {
             prompt,
             requestType: "dashboard",
             dataSource,
+            activeDatasetId,
             conversationHistory: chatHistory,
             localSchema: schema,
             mongoCollection:
@@ -329,7 +337,7 @@ export function Workspace() {
                 }`}
               />
               {dataSource === "server"
-                ? "Sales Data"
+                ? (activeDatasetName || "Server Data")
                 : dataSource === "mongodb"
                   ? `MongoDB: ${mongoCollection}`
                   : "Local CSV"}
@@ -634,7 +642,7 @@ export function Workspace() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <EmptyState onPromptClick={handleExamplePrompt} />
+              <EmptyState onPromptClick={handleExamplePrompt} activeExamplePrompts={ACTIVE_EXAMPLE_PROMPTS} />
             </motion.div>
           )}
       </AnimatePresence>
@@ -684,8 +692,10 @@ export function Workspace() {
 
 function EmptyState({
   onPromptClick,
+  activeExamplePrompts,
 }: {
   onPromptClick: (prompt: string) => void;
+  activeExamplePrompts: string[];
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6">
@@ -700,7 +710,7 @@ function EmptyState({
         charts, KPIs, and AI-powered insights.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
-        {EXAMPLE_PROMPTS.slice(0, 4).map((prompt) => (
+        {activeExamplePrompts.slice(0, 4).map((prompt) => (
           <button
             key={prompt}
             onClick={() => onPromptClick(prompt)}

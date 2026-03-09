@@ -124,6 +124,8 @@ export function ChatPanel() {
         },
       ]);
 
+      const { activeDatasetId } = useDashboardStore.getState();
+
       const res = await fetch("/api/analyze-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,6 +133,7 @@ export function ChatPanel() {
           prompt: finalQuery,
           requestType: "chat",
           dataSource,
+          activeDatasetId,
           conversationHistory: richHistory,
           localSchema: dataSource === "local" ? uploadedSchema : [],
           mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,

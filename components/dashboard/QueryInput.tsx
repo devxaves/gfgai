@@ -6,7 +6,7 @@ import { executeLocalQuery, getLocalSchema, getLocalData, evaluateLocalMetricExp
 import { Send, Loader2, Sparkles, Mic, MicOff, ChevronDown, ChevronUp, Code2, Database } from "lucide-react";
 import type { DashboardChart, DashboardMetric } from "@/types";
 
-export const EXAMPLE_PROMPTS = [
+export const EXAMPLE_PROMPTS_SALES = [
   "Show me total revenue by region",
   "Compare product categories by sales",
   "Monthly revenue trend over time",
@@ -15,12 +15,32 @@ export const EXAMPLE_PROMPTS = [
   "Which sales rep has the highest revenue?",
 ];
 
-const ROTATING_PLACEHOLDERS = [
+export const EXAMPLE_PROMPTS_INSURANCE = [
+  "Which insurer has the highest claims settlement ratio?",
+  "Compare total claims paid by insurance company",
+  "Show claims paid trend by year",
+  "Top 5 insurers by total claims intimated",
+  "What is the repudiation ratio by insurer?",
+  "Compare LIC vs private insurers on settlement ratio",
+];
+
+// Default export — updated dynamically in component based on active dataset
+export const EXAMPLE_PROMPTS = EXAMPLE_PROMPTS_INSURANCE;
+
+const ROTATING_PLACEHOLDERS_SALES = [
   'Try: "Show me monthly revenue trends for 2024"',
   'Try: "Which region has the highest profit margin?"',
   'Try: "Compare sales rep performance by category"',
   'Try: "What is the revenue breakdown by product?"',
   'Try: "Show me top 5 customers by units sold"',
+];
+
+const ROTATING_PLACEHOLDERS_INSURANCE = [
+  'Try: "Which insurer settled the most claims in 2021-22?"',
+  'Try: "Compare claims paid ratio across all insurers"',
+  'Try: "Show year-wise trend of total claims intimated"',
+  'Try: "Which company has the lowest repudiation rate?"',
+  'Try: "Compare LIC and SBI Life settlement performance"',
 ];
 
 export function QueryInput() {
@@ -34,8 +54,12 @@ export function QueryInput() {
     setQuerying, isQuerying, addQuery, setDashboardData,
     dataSource, uploadedSchema, conversationHistory,
     addConversation, setError, setClarification, setExecutedQuery, setCannotAnswer,
-    components, mongoCollection,
+    components, mongoCollection, activeDatasetId,
   } = useDashboardStore();
+
+  const isInsuranceDataset = activeDatasetId === 'preloaded-insurance';
+  const ROTATING_PLACEHOLDERS = isInsuranceDataset ? ROTATING_PLACEHOLDERS_INSURANCE : ROTATING_PLACEHOLDERS_SALES;
+  const ACTIVE_EXAMPLE_PROMPTS = isInsuranceDataset ? EXAMPLE_PROMPTS_INSURANCE : EXAMPLE_PROMPTS_SALES;
 
   // Rotating placeholder
   useEffect(() => {
@@ -43,7 +67,7 @@ export function QueryInput() {
       setPlaceholderIdx((i) => (i + 1) % ROTATING_PLACEHOLDERS.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [ROTATING_PLACEHOLDERS.length]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -113,6 +137,7 @@ export function QueryInput() {
           prompt: finalQuery,
           requestType: "dashboard",
           dataSource,
+          activeDatasetId,
           conversationHistory: chatHistory,
           localSchema: schema,
           mongoCollection: dataSource === 'mongodb' ? mongoCollection : undefined,

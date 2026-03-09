@@ -81,6 +81,17 @@ interface DashboardState {
   resetDashboard: () => void;
 }
 
+const INSURANCE_DATASET: DatasetEntry = {
+  id: 'preloaded-insurance',
+  name: 'Life Insurance Claims',
+  type: 'preloaded',
+  format: 'json',
+  rowCount: 149,
+  columns: ['life_insurer', 'year', 'claims_pending_start_no', 'claims_pending_start_amt', 'claims_intimated_no', 'claims_intimated_amt', 'total_claims_no', 'total_claims_amt', 'claims_paid_no', 'claims_paid_amt', 'claims_repudiated_no', 'claims_repudiated_amt', 'claims_rejected_no', 'claims_rejected_amt', 'claims_unclaimed_no', 'claims_unclaimed_amt', 'claims_pending_end_no', 'claims_pending_end_amt', 'claims_paid_ratio_no', 'claims_paid_ratio_amt', 'claims_repudiated_rejected_ratio_no', 'claims_repudiated_rejected_ratio_amt', 'claims_pending_ratio_no', 'claims_pending_ratio_amt', 'category'],
+  sizeKB: 320,
+  tags: ['Insurance', 'Claims', 'Life Insurance', 'Built-in'],
+};
+
 const PRELOADED_DATASET: DatasetEntry = {
   id: 'preloaded-sales',
   name: 'Sales Dataset 2024',
@@ -129,10 +140,10 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   cannotAnswer: null,
   dataSource: 'server',
   uploadedSchema: [],
-  activeDatasetName: 'Sales Dataset 2024',
+  activeDatasetName: 'Life Insurance Claims',
   uploadedRowCount: 0,
-  datasets: [PRELOADED_DATASET, ECOMMERCE_DATASET, HR_DATASET],
-  activeDatasetId: 'preloaded-sales',
+  datasets: [INSURANCE_DATASET, PRELOADED_DATASET, ECOMMERCE_DATASET, HR_DATASET],
+  activeDatasetId: 'preloaded-insurance',
   mongoCollection: '',
   conversationHistory: [],
   error: null,

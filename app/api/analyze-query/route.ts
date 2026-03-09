@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGeminiClient } from '@/lib/gemini';
-import { executeQuery, computeKPIs, SCHEMA_TEXT, validateQueryColumns, loadSalesData } from '@/lib/queryExecutor';
-import type { QueryPlan, SalesRecord } from '@/lib/queryExecutor';
+import { executeQuery, computeKPIs, SCHEMA_TEXT, INSURANCE_SCHEMA_TEXT, validateQueryColumns, loadSalesData, loadInsuranceData, computeInsuranceKPIs } from '@/lib/queryExecutor';
+import type { QueryPlan, SalesRecord, InsuranceRecord } from '@/lib/queryExecutor';
 import connectToDatabase from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
@@ -208,9 +208,8 @@ ALWAYS return this exact JSON structure (no markdown, no code fences):
 CRITICAL RULES:
 - groupBy supports: any column name, OR "month"/"quarter" for time grouping
 - aggregation.function: sum, count, avg, max, min
-- aggregation.column: revenue, cost, units_sold (numeric columns only)
-- For time trends, use groupBy "month" with chartType "line"
-- For profit, use revenue minus cost (aggregation on revenue)
+- aggregation.column: use ONLY numeric columns from the schema above
+- For time trends, use groupBy on the date/year column with chartType "line"
 - recommendedChartType: the OPTIMAL chart type for this specific data — always set this
 - If the question CANNOT be answered from the available data (wrong columns, impossible query, unrelated topic):
   Set "understood": false, "cannotAnswer": true, "cannotAnswerReason": "clear explanation of why"
@@ -392,7 +391,7 @@ function extractLooseInsightsPayload(rawText: string): InsightsChatPayload | nul
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { prompt, conversationHistory, dataSource, localSchema, mongoCollection, requestType = 'dashboard' as RequestType } = body;
+    const { prompt, conversationHistory, dataSource, localSchema, mongoCollection, activeDatasetId, requestType = 'dashboard' as RequestType } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ success: false, error: 'Please enter a question about your data.' }, { status: 400 });
@@ -410,6 +409,16 @@ export async function POST(req: Request) {
     if (requestType === 'insights-chat') systemPrompt = INSIGHTS_CHAT_SYSTEM_PROMPT;
     if (dataSource === 'local' && localSchema?.length > 0) {
       systemPrompt = systemPrompt.replace(SCHEMA_TEXT, `Uploaded CSV dataset with columns: ${localSchema.join(', ')}\nThe dataset was uploaded by the user. Use only these columns.`);
+    }
+
+    const isInsuranceDataset = dataSource === 'server' && activeDatasetId === 'preloaded-insurance';
+
+    if (isInsuranceDataset) {
+      systemPrompt = systemPrompt
+        .replace(SCHEMA_TEXT, INSURANCE_SCHEMA_TEXT)
+        .replace('"Show this by sales rep"', '"Compare settlement ratios by insurer"')
+        .replace('"Break this down by month"', '"Show year-wise trend of claims paid"')
+        .replace('"Compare with Q2"', '"Which company has the lowest repudiation rate?"');
     }
 
     // MongoDB mode: fetch a sample document to build a real schema description for the LLM
@@ -484,7 +493,7 @@ export async function POST(req: Request) {
     }
 
     if (requestType === 'insights-chat') {
-      const deterministic = extractSimpleMetricAnswer(prompt, dataSource);
+      const deterministic = (!isInsuranceDataset) ? extractSimpleMetricAnswer(prompt, dataSource) : null;
       if (deterministic) {
         return NextResponse.json({
           success: true,
@@ -631,12 +640,18 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         mode: 'cannotAnswer',
-        reason: parsed.cannotAnswerReason || parsed.clarification_needed || 'This query cannot be answered with the available dataset. The data only contains sales information from 2024.',
-        followUpSuggestions: parsed.followUpSuggestions || [
+        reason: parsed.cannotAnswerReason || parsed.clarification_needed || (isInsuranceDataset
+          ? 'This query cannot be answered with the available dataset. The data contains Indian life insurance claims across 2018-19 to 2021-22.'
+          : 'This query cannot be answered with the available dataset. The data only contains sales information from 2024.'),
+        followUpSuggestions: parsed.followUpSuggestions || (isInsuranceDataset ? [
+          'Which insurer has the highest claims settlement ratio?',
+          'Compare total claims paid by year',
+          'Show repudiation ratio by life insurer',
+        ] : [
           'Show me total revenue by region',
           'What are the top products by units sold?',
           'Monthly revenue trends for 2024',
-        ],
+        ]),
         rawQueryPlan,
       });
     }
@@ -750,15 +765,21 @@ export async function POST(req: Request) {
       });
     }
 
-    // Server mode — execute queries against /data/sales.json
+    // Server mode — execute queries against the appropriate preloaded dataset
+    const serverRows = isInsuranceDataset
+      ? loadInsuranceData() as unknown as SalesRecord[]
+      : loadSalesData();
+
     const charts = (parsed.charts || []).map((chart, idx) => {
       const query: QueryPlan = chart.query || {};
-      const errors = validateQueryColumns(query);
-      if (errors.length > 0) {
-        console.warn(`[Viz.ai] Column validation warnings for chart ${idx}:`, errors);
+      if (!isInsuranceDataset) {
+        const errors = validateQueryColumns(query);
+        if (errors.length > 0) {
+          console.warn(`[Viz.ai] Column validation warnings for chart ${idx}:`, errors);
+        }
       }
 
-      const queryResult = executeQuery(query);
+      const queryResult = executeQuery(query, serverRows);
 
       return {
         id: chart.id || `chart-${Date.now()}-${idx}`,
@@ -781,19 +802,32 @@ export async function POST(req: Request) {
         success: true,
         mode: 'cannotAnswer',
         reason: 'The query returned no data. This might mean the filters are too restrictive or the data doesn\'t match the query criteria.',
-        followUpSuggestions: parsed.followUpSuggestions || ['Show me total revenue by region', 'What are the top products?'],
+        followUpSuggestions: parsed.followUpSuggestions || (isInsuranceDataset
+          ? ['Which insurer has the highest claims settlement ratio?', 'Show claims paid by year']
+          : ['Show me total revenue by region', 'What are the top products?']),
         rawQueryPlan,
       });
     }
 
     // Compute real KPIs from data
-    const kpiData = computeKPIs();
-    const metrics = [
-      { title: 'Total Revenue', value: `$${kpiData.totalRevenue.toLocaleString()}`, trend: 'Based on all data', trendPositive: true },
-      { title: 'Total Orders', value: kpiData.totalOrders.toString(), trend: `Avg $${kpiData.avgOrderValue}/order`, trendPositive: true },
-      { title: 'Profit Margin', value: `${kpiData.profitMargin}%`, trend: `$${kpiData.totalProfit.toLocaleString()} profit`, trendPositive: kpiData.profitMargin > 30 },
-      { title: 'Best Region', value: kpiData.bestRegion, trend: 'By revenue', trendPositive: true },
-    ];
+    let metrics;
+    if (isInsuranceDataset) {
+      const insKpi = computeInsuranceKPIs(serverRows as unknown as InsuranceRecord[]);
+      metrics = [
+        { title: 'Total Records', value: insKpi.totalRecords.toLocaleString(), trend: 'Across all insurers & years', trendPositive: true },
+        { title: 'Total Claims Intimated', value: insKpi.totalClaimsIntimated.toLocaleString(), trend: 'All years combined', trendPositive: true },
+        { title: 'Total Claims Paid', value: insKpi.totalClaimsPaid.toLocaleString(), trend: 'All years combined', trendPositive: true },
+        { title: 'Avg Settlement Ratio', value: `${insKpi.avgSettlementRatio}%`, trend: `Best: ${insKpi.bestInsurer}`, trendPositive: insKpi.avgSettlementRatio > 90 },
+      ];
+    } else {
+      const kpiData = computeKPIs();
+      metrics = [
+        { title: 'Total Revenue', value: `$${kpiData.totalRevenue.toLocaleString()}`, trend: 'Based on all data', trendPositive: true },
+        { title: 'Total Orders', value: kpiData.totalOrders.toString(), trend: `Avg $${kpiData.avgOrderValue}/order`, trendPositive: true },
+        { title: 'Profit Margin', value: `${kpiData.profitMargin}%`, trend: `$${kpiData.totalProfit.toLocaleString()} profit`, trendPositive: kpiData.profitMargin > 30 },
+        { title: 'Best Region', value: kpiData.bestRegion, trend: 'By revenue', trendPositive: true },
+      ];
+    }
 
     return NextResponse.json({
       success: true,

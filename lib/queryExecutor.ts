@@ -72,6 +72,32 @@ export const SCHEMA_TEXT = `Available dataset columns:
 
 The dataset has 155 sales records from January to December 2024.`;
 
+export const INSURANCE_SCHEMA_TEXT = `Available dataset columns (Life Insurance Claims dataset):
+- life_insurer (string): Name of the life insurance company (e.g. LIC, HDFC, ICICI, SBI Life, Max, Kotak, Tata AIA, Bajaj Allianz, etc.)
+- year (string): Fiscal year (2018-19, 2019-20, 2020-21, 2021-22)
+- claims_intimated_no (number): Number of claims filed/intimated during the year
+- claims_intimated_amt (number): Amount of claims intimated (in Crores INR)
+- total_claims_no (number): Total number of claims handled (including pending from start)
+- total_claims_amt (number): Total claims amount (in Crores INR)
+- claims_paid_no (number): Number of claims settled/paid
+- claims_paid_amt (number): Amount of claims paid (in Crores INR)
+- claims_repudiated_no (number): Number of claims repudiated (rejected after investigation)
+- claims_repudiated_amt (number): Amount of claims repudiated (in Crores INR)
+- claims_rejected_no (number): Number of claims rejected outright
+- claims_rejected_amt (number): Amount of claims rejected
+- claims_unclaimed_no (number): Number of unclaimed amounts
+- claims_unclaimed_amt (number): Unclaimed amount (in Crores INR)
+- claims_pending_end_no (number): Number of claims pending at end of the year
+- claims_pending_end_amt (number): Amount pending at end of year (in Crores INR)
+- claims_paid_ratio_no (number): Claims settlement ratio by count (0 to 1, e.g. 0.98 = 98%)
+- claims_paid_ratio_amt (number): Claims settlement ratio by amount (0 to 1)
+- claims_repudiated_rejected_ratio_no (number): Repudiation+rejection ratio by count
+- claims_pending_ratio_no (number): Pending claims ratio by count
+- category (string): Claim category — all records are "Individual Death Claims"
+
+The dataset has ~149 records from Indian life insurance companies across 4 fiscal years (2018-19 to 2021-22).
+IMPORTANT: Use ONLY columns listed above. For groupBy use "life_insurer" or "year". For aggregation use numeric columns like claims_paid_no, claims_paid_amt, total_claims_no, claims_intimated_no, claims_paid_ratio_no, etc.`;
+
 // ---------- Data Loading ----------
 
 let cachedData: SalesRecord[] | null = null;
@@ -82,6 +108,87 @@ export function loadSalesData(): SalesRecord[] {
   const raw = fs.readFileSync(filePath, 'utf-8');
   cachedData = JSON.parse(raw) as SalesRecord[];
   return cachedData;
+}
+
+export interface InsuranceRecord {
+  life_insurer: string;
+  year: string;
+  claims_pending_start_no: number;
+  claims_pending_start_amt: number;
+  claims_intimated_no: number;
+  claims_intimated_amt: number;
+  total_claims_no: number;
+  total_claims_amt: number;
+  claims_paid_no: number;
+  claims_paid_amt: number;
+  claims_repudiated_no: number;
+  claims_repudiated_amt: number;
+  claims_rejected_no: number;
+  claims_rejected_amt: number;
+  claims_unclaimed_no: number;
+  claims_unclaimed_amt: number;
+  claims_pending_end_no: number;
+  claims_pending_end_amt: number;
+  claims_paid_ratio_no: number;
+  claims_paid_ratio_amt: number;
+  claims_repudiated_rejected_ratio_no: number;
+  claims_repudiated_rejected_ratio_amt: number;
+  claims_pending_ratio_no: number;
+  claims_pending_ratio_amt: number;
+  category: string;
+  [key: string]: unknown;
+}
+
+let cachedInsuranceData: InsuranceRecord[] | null = null;
+
+export function loadInsuranceData(): InsuranceRecord[] {
+  if (cachedInsuranceData) return cachedInsuranceData;
+  const filePath = path.join(process.cwd(), 'data', 'insurance.json');
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  cachedInsuranceData = JSON.parse(raw) as InsuranceRecord[];
+  return cachedInsuranceData;
+}
+
+export interface InsuranceKPIResult {
+  totalRecords: number;
+  totalClaimsPaid: number;
+  totalClaimsIntimated: number;
+  avgSettlementRatio: number;
+  bestInsurer: string;
+}
+
+const AGGREGATE_NAMES = new Set(['Industry', 'Industry Total', 'PVT.', 'Private Total']);
+
+export function computeInsuranceKPIs(data?: InsuranceRecord[]): InsuranceKPIResult {
+  const rows = data || loadInsuranceData();
+  const totalRecords = rows.length;
+  const totalClaimsPaid = rows.reduce((sum, r) => sum + (r.claims_paid_no || 0), 0);
+  const totalClaimsIntimated = rows.reduce((sum, r) => sum + (r.claims_intimated_no || 0), 0);
+  const validRatios = rows.filter(r => r.claims_paid_ratio_no > 0);
+  const avgSettlementRatio = validRatios.length > 0
+    ? validRatios.reduce((sum, r) => sum + r.claims_paid_ratio_no, 0) / validRatios.length
+    : 0;
+
+  // Best individual insurer by average settlement ratio
+  const individualRows = rows.filter(r => !AGGREGATE_NAMES.has(r.life_insurer));
+  const insurerRatios: Record<string, number[]> = {};
+  individualRows.forEach(r => {
+    if (r.claims_paid_ratio_no > 0) {
+      if (!insurerRatios[r.life_insurer]) insurerRatios[r.life_insurer] = [];
+      insurerRatios[r.life_insurer].push(r.claims_paid_ratio_no);
+    }
+  });
+  const bestInsurer = Object.entries(insurerRatios)
+    .map(([name, vals]) => ({ name, avg: vals.reduce((a, b) => a + b, 0) / vals.length }))
+    .sort((a, b) => b.avg - a.avg)[0]?.name || 'N/A';
+
+  return {
+    totalRecords,
+    totalClaimsPaid,
+    totalClaimsIntimated,
+    avgSettlementRatio: Math.round(avgSettlementRatio * 10000) / 100,
+    bestInsurer,
+  };
 }
 
 // ---------- Date Helpers ----------
@@ -153,21 +260,23 @@ function aggregate(values: number[], fn: string): number {
 
 function resolveGroupKey(row: SalesRecord, groupBy: string): string {
   const lower = groupBy.toLowerCase();
+  const rowAny = row as Record<string, unknown>;
 
-  // Handle derived time dimensions
+  // Handle derived time dimensions (only when record has a 'date' field)
   if (lower === 'month' || lower === 'date_month' || lower === 'monthly') {
-    return getMonthName(row.date);
+    return row.date ? getMonthName(row.date) : String(rowAny[groupBy] ?? 'Unknown');
   }
   if (lower === 'quarter' || lower === 'date_quarter' || lower === 'quarterly') {
-    return getQuarter(row.date);
+    return row.date ? getQuarter(row.date) : String(rowAny[groupBy] ?? 'Unknown');
   }
   if (lower === 'year') {
-    return new Date(row.date).getFullYear().toString();
+    // If the record has a direct 'year' column (e.g. insurance data), prefer it
+    if (rowAny['year'] !== undefined) return String(rowAny['year']);
+    return row.date ? new Date(row.date).getFullYear().toString() : 'Unknown';
   }
 
   // Direct column
-  const col = groupBy as keyof SalesRecord;
-  return String(row[col] ?? 'Unknown');
+  return String(rowAny[groupBy] ?? 'Unknown');
 }
 
 // ---------- Month Sort Helper ----------
