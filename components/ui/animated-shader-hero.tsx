@@ -504,7 +504,7 @@ const Hero: React.FC<HeroProps> = ({
               {buttons.primary && (
                 <button
                   onClick={buttons.primary.onClick}
-                  className="rounded-full bg-linear-to-r from-sky-500 to-blue-700 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-sky-500/30 transition-all duration-300 hover:scale-105 hover:from-sky-600 hover:to-blue-800"
+                  className="cursor-pointer rounded-full bg-linear-to-r from-sky-500 to-blue-700 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-sky-500/30 transition-all duration-300 hover:scale-105 hover:from-sky-600 hover:to-blue-800"
                 >
                   {buttons.primary.text}
                 </button>
@@ -512,7 +512,7 @@ const Hero: React.FC<HeroProps> = ({
               {buttons.secondary && (
                 <button
                   onClick={buttons.secondary.onClick}
-                  className="rounded-full border border-blue-300/60 bg-white/70 px-8 py-4 text-lg font-semibold text-blue-900 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-sky-50"
+                  className="cursor-pointer rounded-full border border-blue-300/60 bg-white/70 px-8 py-4 text-lg font-semibold text-blue-900 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-sky-50"
                 >
                   {buttons.secondary.text}
                 </button>

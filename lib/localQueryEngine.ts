@@ -1,5 +1,5 @@
 // ============================================================================
-// Vizly AI — Local CSV/JSON Query Engine (runs in-browser)
+// Viz.ai — Local CSV/JSON Query Engine (runs in-browser)
 // ============================================================================
 // This module queries data stored in IndexedDB (Dexie) using JavaScript
 // aggregation functions. No database required.

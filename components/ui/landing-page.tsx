@@ -11,6 +11,8 @@ import {
   Workflow,
 } from "lucide-react";
 import Hero from "@/components/ui/animated-shader-hero";
+import { LogoBadge } from "@/components/layout/LogoBadge";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const features = [
   {
@@ -53,9 +55,46 @@ const features = [
 
 const LandingPage: React.FC = () => {
   const router = useRouter();
+  const { setDemoUser, isAuthenticated } = useAuthStore();
+
+  const handleDemoAccess = () => {
+    setDemoUser();
+    router.push("/dashboard");
+  };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
+      {/* Navigation */}
+      <nav className="fixed top-6 min-w-sm  left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 bg-black/20 backdrop-blur-lg border-3 border-blue-300 rounded-2xl shadow-2xl shadow-black/10">
+        <div className="flex items-center justify-between max-w-md mx-auto">
+          <div className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+            <div className="mr-12 my-1 text-white">
+                      <LogoBadge size="md" showText />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <span className="text-white font-medium">Signed in</span>
+            ) : (
+              <>
+                <button
+                  onClick={() => router.push("/auth")}
+                  className="cursor-pointer px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors duration-300 hover:bg-white/10 rounded-lg backdrop-blur-sm"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => router.push("/auth")}
+                  className="cursor-pointer px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500/80 to-cyan-500/80 hover:from-indigo-400 hover:to-cyan-400 rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/25 transform backdrop-blur-sm"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
       <Hero
         trustBadge={{
           text: "Trusted by analysts, operators, and founders.",
@@ -65,17 +104,16 @@ const LandingPage: React.FC = () => {
           line1: "Turn Raw Data Into",
           line2: "Instant Decisions",
         }}
-        subtitle="Vizly AI helps your team upload datasets, run AI-powered analysis, and convert noisy data into clear next steps—faster than traditional BI flows."
+        subtitle="Viz.ai helps your team upload datasets, run AI-powered analysis, and convert noisy data into clear next steps—faster than traditional BI flows."
         buttons={{
           primary: {
-            text: "Open Workspace",
-            onClick: () => router.push("/dashboard"),
+            text: isAuthenticated ? "Open workspace" : "Get Started",
+            onClick: () =>
+              router.push(isAuthenticated ? "/dashboard" : "/auth"),
           },
           secondary: {
-            text: "See Features",
-            onClick: () => {
-              document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
-            },
+            text: "Explore more",
+            onClick: handleDemoAccess,
           },
         }}
       />
@@ -89,7 +127,8 @@ const LandingPage: React.FC = () => {
             Everything you need for day-one insights
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-blue-950/70 md:text-lg">
-            From upload to action, every surface is designed to shorten your decision loop.
+            From upload to action, every surface is designed to shorten your
+            decision loop.
           </p>
         </div>
 
@@ -104,8 +143,12 @@ const LandingPage: React.FC = () => {
                 <div className="mb-4 inline-flex rounded-xl bg-linear-to-br from-sky-100 to-blue-100 p-3">
                   <Icon className="h-5 w-5 text-blue-700" />
                 </div>
-                <h3 className="text-lg font-semibold text-blue-950">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{feature.description}</p>
+                <h3 className="text-lg font-semibold text-blue-950">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {feature.description}
+                </p>
               </article>
             );
           })}
@@ -121,9 +164,12 @@ const LandingPage: React.FC = () => {
             loading="lazy"
           />
           <div className="p-6">
-            <h3 className="text-xl font-semibold text-blue-950">From questions to clarity</h3>
+            <h3 className="text-xl font-semibold text-blue-950">
+              From questions to clarity
+            </h3>
             <p className="mt-2 text-slate-600">
-              Ask high-impact questions and transform ambiguous datasets into understandable trends.
+              Ask high-impact questions and transform ambiguous datasets into
+              understandable trends.
             </p>
           </div>
         </div>
@@ -136,9 +182,12 @@ const LandingPage: React.FC = () => {
             loading="lazy"
           />
           <div className="p-6">
-            <h3 className="text-xl font-semibold text-blue-950">Built for fast-moving teams</h3>
+            <h3 className="text-xl font-semibold text-blue-950">
+              Built for fast-moving teams
+            </h3>
             <p className="mt-2 text-slate-600">
-              Keep decisions grounded with reusable insights, chart-ready outputs, and a focused workflow.
+              Keep decisions grounded with reusable insights, chart-ready
+              outputs, and a focused workflow.
             </p>
           </div>
         </div>
@@ -146,20 +195,32 @@ const LandingPage: React.FC = () => {
 
       <section className="mx-auto max-w-6xl px-6 pb-24 md:px-10">
         <div className="rounded-3xl border border-sky-200 bg-linear-to-r from-sky-100 via-blue-100 to-indigo-100 p-8 text-center md:p-12">
-          <p className="text-sm font-medium uppercase tracking-wide text-blue-700">Ready to start?</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-blue-700">
+            Ready to start?
+          </p>
           <h3 className="mt-3 text-2xl font-bold text-blue-950 md:text-4xl">
             Launch your first insight in minutes
           </h3>
           <p className="mx-auto mt-3 max-w-2xl text-blue-900/80">
-            Open the workspace, upload your data, and let Vizly AI guide you to the metrics that matter.
+            Sign up to save your work and access your chats from anywhere. Or
+            try our demo to explore features instantly.
           </p>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-sky-500 to-blue-700 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
-          >
-            Go to Dashboard
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          <div className="flex items-center justify-center gap-4 mt-7">
+            <button
+              onClick={() => router.push("/auth")}
+              className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-sky-500 to-blue-700 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:scale-[1.02]"
+            >
+              Create Account
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleDemoAccess}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-sm font-semibold text-blue-700 border border-blue-300 shadow-md transition hover:bg-blue-50"
+            >
+              Try Demo
+              <Sparkles className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </section>
     </main>

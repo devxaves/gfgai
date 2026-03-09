@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'MongoDB upload failed';
-    console.error('[Vizly AI] upload-dataset error:', msg);
+    console.error('[Viz.ai] upload-dataset error:', msg);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

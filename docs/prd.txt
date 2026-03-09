@@ -3,7 +3,7 @@ Conversational AI for Instant Business Intelligence Dashboards
 1. Product Overview
 1.1 Product Name
 
-Vizly AI – Conversational Business Intelligence Dashboard Generator
+Viz.ai – Conversational Business Intelligence Dashboard Generator
 
 1.2 Vision
 
@@ -385,7 +385,7 @@ LLM Integration
 
 LLM accessed through API:
 
-Google Gemini API
+Google  API
 
 OpenAI API
 

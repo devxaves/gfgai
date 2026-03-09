@@ -1,4 +1,4 @@
-# Vizly AI — Conversational AI for Business Intelligence
+# Viz.ai — Conversational AI for Business Intelligence
 
 > Type a plain English question. Get an interactive data dashboard instantly.  
 > Powered by Google Gemini AI.
@@ -56,11 +56,11 @@ open http://localhost:3000
 
 **Get a Gemini API key:** https://aistudio.google.com/apikey (free tier available)
 
-> No database setup required! Vizly AI uses a built-in 155-row sales dataset.
+> No database setup required! Viz.ai uses a built-in 155-row sales dataset.
 
 ## 📊 Test Queries
 
-Try these queries to see Vizly AI in action:
+Try these queries to see Viz.ai in action:
 
 ### Simple
 

@@ -91,7 +91,7 @@ Layout
 Logo        Upload Data
 -----------------------------------
 
-        Ask Vizly AI
+        Ask Viz.ai
 
 [ Show me revenue by region ]
 

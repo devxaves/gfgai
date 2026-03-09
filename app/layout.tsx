@@ -6,9 +6,16 @@ import { DarkModeProvider } from "@/components/layout/DarkModeProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Vizly AI - Conversational Business Intelligence",
-  description: "Generate interactive dashboards instantly through natural language queries. No SQL required.",
-  keywords: ["AI", "Business Intelligence", "Dashboard", "Analytics", "Natural Language"],
+  title: "Viz.ai - Conversational Business Intelligence",
+  description:
+    "Generate interactive dashboards instantly through natural language queries. No SQL required.",
+  keywords: [
+    "AI",
+    "Business Intelligence",
+    "Dashboard",
+    "Analytics",
+    "Natural Language",
+  ],
   icons: {
     icon: "/logo.png",
   },
@@ -21,10 +28,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${inter.variable} font-sans antialiased text-gray-900 dark:text-gray-50 bg-slate-50 dark:bg-gray-950`}>
-        <DarkModeProvider>
-          {children}
-        </DarkModeProvider>
+      <body
+        suppressHydrationWarning
+        className={`${inter.variable} font-sans antialiased text-gray-900 dark:text-gray-50 bg-slate-50 dark:bg-gray-950`}
+      >
+        <DarkModeProvider>{children}</DarkModeProvider>
       </body>
     </html>
   );

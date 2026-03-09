@@ -1,4 +1,4 @@
-# Project Todo List - Vizly AI
+# Project Todo List - Viz.ai
 
 Based on the PRD, Design Document, and Tech Rules, here is the feature-specific breakdown for the Conversational AI Business Intelligence Dashboard Generator.
 

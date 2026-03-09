@@ -49,7 +49,7 @@ export async function POST() {
       results[name] = `seeded (${cleanDocs.length} docs)`;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[Vizly AI] seed-demo-datasets: failed for ${name}:`, msg);
+      console.error(`[Viz.ai] seed-demo-datasets: failed for ${name}:`, msg);
       results[name] = `error: ${msg}`;
     }
   }

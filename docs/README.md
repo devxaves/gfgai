@@ -1,1 +1,1 @@
-# Vizly AI
+# Viz.ai

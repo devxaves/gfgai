@@ -222,7 +222,7 @@ CRITICAL RULES:
 - NEVER invent columns not in the schema. If user asks about data not in schema, set cannotAnswer=true
 - Return ONLY valid JSON`;
 
-const CHAT_SYSTEM_PROMPT = `You are a senior data analyst assistant for Vizly AI. You answer questions about the dataset in a clear, structured, conversational format.
+const CHAT_SYSTEM_PROMPT = `You are a senior data analyst assistant for Viz.ai. You answer questions about the dataset in a clear, structured, conversational format.
 
 ${SCHEMA_TEXT}
 
@@ -250,7 +250,7 @@ Next Steps:
 - Ask "Compare product categories by profit margin"
 - Ask "Who are the bottom 3 sales reps?"`;
 
-const INSIGHTS_CHAT_SYSTEM_PROMPT = `You are an AI insights copilot for Vizly AI dashboard conversations.
+const INSIGHTS_CHAT_SYSTEM_PROMPT = `You are an AI insights copilot for Viz.ai dashboard conversations.
 
 ${SCHEMA_TEXT}
 
@@ -439,7 +439,7 @@ export async function POST(req: Request) {
           }
         }
       } catch (schemaErr) {
-        console.warn('[Vizly AI] MongoDB schema pre-fetch failed:', schemaErr);
+        console.warn('[Viz.ai] MongoDB schema pre-fetch failed:', schemaErr);
       }
     }
 
@@ -755,7 +755,7 @@ export async function POST(req: Request) {
       const query: QueryPlan = chart.query || {};
       const errors = validateQueryColumns(query);
       if (errors.length > 0) {
-        console.warn(`[Vizly AI] Column validation warnings for chart ${idx}:`, errors);
+        console.warn(`[Viz.ai] Column validation warnings for chart ${idx}:`, errors);
       }
 
       const queryResult = executeQuery(query);
@@ -808,7 +808,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error: unknown) {
-    console.error('[Vizly AI] API Error:', error);
+    console.error('[Viz.ai] API Error:', error);
     const msg = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
