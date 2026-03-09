@@ -727,7 +727,7 @@ function EmptyState({
         ))}
       </div>
       <p className="mt-6 text-xs text-gray-400 dark:text-gray-600 text-center max-w-sm">
-        💡 Upload a CSV file to analyze your own data, or use the built-in sales
+        💡 Upload a CSV file to analyze your own data, or use the built-in
         dataset. Ask follow-up questions to refine your dashboard.
       </p>
     </div>
