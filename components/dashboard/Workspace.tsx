@@ -31,6 +31,10 @@ import {
   AlertTriangle,
   HelpCircle,
   X,
+  Share2,
+  FileDown,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback } from "react";
@@ -98,6 +102,8 @@ export function Workspace() {
     Record<string, ChartType>
   >({});
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'copied'>('idle');
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading'>('idle');
 
   const handleExamplePrompt = useCallback(
     async (prompt: string) => {
@@ -325,6 +331,122 @@ export function Workspace() {
                 <MessageCircle className="w-3 h-3" />
                 {conversationHistory.length} queries
               </span>
+            )}
+            {/* Share Button */}
+            {components.length > 0 && (
+              <button
+                onClick={async () => {
+                  setShareStatus('loading');
+                  try {
+                    const res = await fetch('/api/share-dashboard', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        query: currentQuery,
+                        metrics,
+                        charts: components,
+                        summary,
+                        narrative,
+                        datasetName: activeDatasetName,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (json.success) {
+                      await navigator.clipboard.writeText(json.shareUrl);
+                      setShareStatus('copied');
+                      setTimeout(() => setShareStatus('idle'), 2500);
+                    } else {
+                      alert(json.error || 'Failed to share dashboard');
+                      setShareStatus('idle');
+                    }
+                  } catch {
+                    alert('Failed to share dashboard. Please try again.');
+                    setShareStatus('idle');
+                  }
+                }}
+                disabled={shareStatus === 'loading'}
+                className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all ${
+                  shareStatus === 'copied'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600'
+                    : 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                }`}
+                title="Share dashboard"
+              >
+                {shareStatus === 'loading' ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : shareStatus === 'copied' ? (
+                  <Check className="w-3 h-3" />
+                ) : (
+                  <Share2 className="w-3 h-3" />
+                )}
+                {shareStatus === 'copied' ? 'Link Copied!' : 'Share'}
+              </button>
+            )}
+            {/* Export PDF Button */}
+            {components.length > 0 && (
+              <button
+                onClick={async () => {
+                  setExportStatus('loading');
+                  try {
+                    const { toPng } = await import('html-to-image');
+                    const { default: jsPDF } = await import('jspdf');
+                    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                    const pageW = pdf.internal.pageSize.getWidth();
+                    const pageH = pdf.internal.pageSize.getHeight();
+                    // Title page
+                    pdf.setFillColor(99, 102, 241);
+                    pdf.rect(0, 0, pageW, pageH, 'F');
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFontSize(32);
+                    pdf.text('Viz.ai Report', pageW / 2, 50, { align: 'center' });
+                    pdf.setFontSize(14);
+                    pdf.text(currentQuery || 'Dashboard Report', pageW / 2, 70, { align: 'center' });
+                    pdf.setFontSize(10);
+                    pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageW / 2, 85, { align: 'center' });
+                    if (activeDatasetName) {
+                      pdf.text(`Dataset: ${activeDatasetName}`, pageW / 2, 95, { align: 'center' });
+                    }
+                    // Capture charts
+                    for (const chart of components) {
+                      const el = document.getElementById(`chart-${chart.id}`);
+                      if (!el) continue;
+                      pdf.addPage();
+                      const imgData = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 2 });
+                      const imgProps = pdf.getImageProperties(imgData);
+                      const imgW = pageW - 20;
+                      const imgH = (imgProps.height * imgW) / imgProps.width;
+                      pdf.addImage(imgData, 'PNG', 10, 10, imgW, Math.min(imgH, pageH - 20));
+                    }
+                    // AI Narrative page
+                    if (narrative || summary) {
+                      pdf.addPage();
+                      pdf.setTextColor(99, 102, 241);
+                      pdf.setFontSize(18);
+                      pdf.text('AI Insight', 15, 20);
+                      pdf.setTextColor(55, 65, 81);
+                      pdf.setFontSize(11);
+                      const lines = pdf.splitTextToSize(narrative || summary, pageW - 30);
+                      pdf.text(lines, 15, 35);
+                    }
+                    pdf.save(`vizai-report-${Date.now()}.pdf`);
+                  } catch (err) {
+                    console.error('PDF export failed:', err);
+                    alert('Failed to export PDF. Please try again.');
+                  } finally {
+                    setExportStatus('idle');
+                  }
+                }}
+                disabled={exportStatus === 'loading'}
+                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all"
+                title="Export as PDF"
+              >
+                {exportStatus === 'loading' ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <FileDown className="w-3 h-3" />
+                )}
+                Export PDF
+              </button>
             )}
             <span className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full">
               <span

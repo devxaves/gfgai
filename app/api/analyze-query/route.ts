@@ -10,10 +10,9 @@ type RequestType = 'dashboard' | 'chat' | 'insights-chat';
 
 // Ordered fastest-first. No runtime discovery — avoids a slow HTTP list call.
 const PREFERRED_GEMINI_MODELS = [
-  'gemini-2.0-flash-lite',   // fastest
-  'gemini-2.0-flash',        // fast + highly capable
+  'gemini-2.5-flash-lite',   // fastest'gemini-2.0-flash',        // fast + highly capable
   'gemini-2.5-flash',        // most capable (slightly slower)
-  'gemini-1.5-flash-8b',     // reliable fallback
+  'gemini-2.5-flash',     // reliable fallback
 ];
 
 const PREFERRED_GROQ_MODELS = [

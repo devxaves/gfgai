@@ -57,6 +57,15 @@ interface DashboardState {
   sidebarOpen: boolean;
   chatPanelOpen: boolean;
 
+  // Compare Mode
+  compareMode: boolean;
+  compareQuery: string;
+  compareMetrics: DashboardMetric[];
+  compareComponents: DashboardChart[];
+  compareSummary: string;
+  compareNarrative: string;
+  compareIsQuerying: boolean;
+
   // Actions
   setQuerying: (status: boolean) => void;
   addQuery: (query: string) => void;
@@ -79,6 +88,13 @@ interface DashboardState {
   setSidebarOpen: (open: boolean) => void;
   setChatPanelOpen: (open: boolean) => void;
   resetDashboard: () => void;
+
+  // Compare actions
+  setCompareMode: (on: boolean) => void;
+  setCompareQuery: (q: string) => void;
+  setCompareDashboardData: (metrics: DashboardMetric[], components: DashboardChart[], summary?: string, narrative?: string) => void;
+  setCompareIsQuerying: (status: boolean) => void;
+  resetCompare: () => void;
 }
 
 const INSURANCE_DATASET: DatasetEntry = {
@@ -151,6 +167,15 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   darkMode: false,
   sidebarOpen: true,
   chatPanelOpen: false,
+
+  // Compare mode
+  compareMode: false,
+  compareQuery: '',
+  compareMetrics: [],
+  compareComponents: [],
+  compareSummary: '',
+  compareNarrative: '',
+  compareIsQuerying: false,
 
   setQuerying: (status) => set({ isQuerying: status }),
 
@@ -229,5 +254,25 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     clarification: null,
     executedQuery: null,
     cannotAnswer: null,
+  }),
+
+  setCompareMode: (on) => set({ compareMode: on }),
+  setCompareQuery: (q) => set({ compareQuery: q }),
+  setCompareDashboardData: (metrics, components, summary, narrative) => set({
+    compareMetrics: metrics,
+    compareComponents: components,
+    compareSummary: summary || '',
+    compareNarrative: narrative || '',
+    compareIsQuerying: false,
+  }),
+  setCompareIsQuerying: (status) => set({ compareIsQuerying: status }),
+  resetCompare: () => set({
+    compareMode: false,
+    compareQuery: '',
+    compareMetrics: [],
+    compareComponents: [],
+    compareSummary: '',
+    compareNarrative: '',
+    compareIsQuerying: false,
   }),
 }));

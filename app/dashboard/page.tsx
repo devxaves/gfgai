@@ -9,9 +9,13 @@ import { DatasetUploader } from "@/components/dashboard/DatasetUploader";
 import { DataSourceSelector } from "@/components/dashboard/DataSourceSelector";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { ChatToggleButton } from "@/components/dashboard/ChatToggleButton";
+import { CompareWorkspace } from "@/components/dashboard/CompareWorkspace";
+import { ArrowLeftRight } from "lucide-react";
+import { useDashboardStore } from "@/store/useDashboardStore";
 
 export default function Dashboard() {
   const { isAuthenticated, isDemoUser, isLoading, checkAuth } = useAuthStore();
+  const { compareMode, setCompareMode, components } = useDashboardStore();
 
   useEffect(() => {
     checkAuth();
@@ -94,16 +98,37 @@ export default function Dashboard() {
               <QueryInput />
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {/* Compare Toggle */}
+              {components.length > 0 && (
+                <button
+                  onClick={() => setCompareMode(!compareMode)}
+                  className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all ${
+                    compareMode
+                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-violet-50 dark:hover:bg-violet-950/20 hover:text-violet-600'
+                  }`}
+                  title="Compare dashboards side by side"
+                >
+                  <ArrowLeftRight className="w-3 h-3" />
+                  Compare
+                </button>
+              )}
               <DatasetUploader />
               <ChatToggleButton />
             </div>
           </div>
         </header>
         <div className="flex flex-1 overflow-hidden">
-          <main className="flex-1 overflow-auto p-4 lg:p-6">
-            <Workspace />
-          </main>
-          <ChatPanel />
+          {compareMode ? (
+            <div className="flex-1 overflow-hidden">
+              <CompareWorkspace />
+            </div>
+          ) : (
+            <main className="flex-1 overflow-auto p-4 lg:p-6">
+              <Workspace />
+            </main>
+          )}
+          {!compareMode && <ChatPanel />}
         </div>
       </div>
     </div>

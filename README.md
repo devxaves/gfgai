@@ -53,6 +53,26 @@ Each query generates 1–3 contextual charts (bar, line, pie, area, stacked) plu
 </td>
 <td width="50%">
 
+### 🌍 Real-Time Sharing
+Dashboards are no longer ephemeral. Generate an insight, click "**Share**", and instantly get a unique, public URL to send to your team or embed in a presentation.
+
+</td>
+<td width="50%">
+
+### 🔄 Compare Mode
+Run two queries simultaneously and see their dashboards side-by-side using `react-resizable-panels`. Perfect for A/B testing segments or comparing time periods directly.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🔔 Auto-Insights Engine
+Our deterministic analysis engine runs automatically on page load, scanning your dataset to surface critical **Anomalies**, **Trends**, and **Correlations** before you even ask a question.
+
+</td>
+<td width="50%">
+
 ### 💬 Conversational Context
 Follow-up queries understand your previous questions. Ask _"Show revenue by region"_ then _"Now filter to Enterprise customers"_ — Viz.ai maintains full conversational context across queries.
 
@@ -80,12 +100,13 @@ Follow-up queries understand your previous questions. Ask _"Show revenue by regi
 
 | Feature | Description |
 |---------|-------------|
-| **5 Chart Types** | Bar, Line, Pie, Area, and Stacked charts with smooth animations |
+| **Multi-Chart Dashboards** | Each query generates 1–3 contextual charts (bar, line, pie, area, stacked) |
 | **Animated KPI Cards** | 2–4 key metrics with trend indicators for instant overview |
+| **Compare Mode** | Render two dashboards side-by-side with resizable panels |
+| **Dashboard Sharing** | Generate instant public URLs for any dashboard via MongoDB |
+| **PDF Export** | Download any dashboard as a styled, client-side generated PDF |
+| **Auto-Insights** | Proactive anomaly detection, trend analysis, and correlations on load |
 | **Chart Type Switcher** | Switch any chart between bar/line/pie/area without re-querying |
-| **Fullscreen Mode** | Expand any chart to fullscreen for presentations |
-| **Chart Export** | Download any chart as high-resolution PNG |
-| **Data Brush** | Interactive zoom/scroll on charts with 8+ data points |
 | **Multi-Dataset Support** | Built-in Sales (155 rows), Insurance (149 rows), E-commerce, and HR datasets |
 
 ### 🎤 Input & Interaction

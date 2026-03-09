@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useDashboardStore } from "@/store/useDashboardStore";
-import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, Send, Sparkles, User, Database, BarChart3, Rows3, Columns3, Tag, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Lightbulb, RefreshCw, Loader2, TrendingUp, TrendingDown, Minus, AlertCircle, Send, Sparkles, User, Database, BarChart3, Rows3, Columns3, Tag, Mic, MicOff, Volume2, VolumeX, Zap, AlertTriangle, GitCompare, Trophy, ArrowDown } from "lucide-react";
 
 interface Insight {
   title: string;
@@ -22,10 +22,24 @@ interface ChatMessage {
   followUpSuggestions?: string[];
 }
 
+interface AutoInsight {
+  id: string;
+  type: 'anomaly' | 'trend' | 'correlation' | 'top_performer' | 'bottom_performer';
+  title: string;
+  description: string;
+  metric: string;
+  severity: 'high' | 'medium' | 'low';
+  icon: string;
+}
+
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-Insights
+  const [autoInsights, setAutoInsights] = useState<AutoInsight[]>([]);
+  const [autoLoading, setAutoLoading] = useState(false);
 
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -88,6 +102,33 @@ export default function InsightsPage() {
     fetchInsights();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDatasetId, dataSource, mongoCollection]);
+
+  // Fetch auto-insights
+  useEffect(() => {
+    const fetchAutoInsights = async () => {
+      if (dataSource !== 'server') {
+        setAutoInsights([]);
+        return;
+      }
+      setAutoLoading(true);
+      try {
+        const res = await fetch('/api/auto-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activeDatasetId, dataSource }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          setAutoInsights(json.insights || []);
+        }
+      } catch {
+        // Silently fail — auto-insights are supplementary
+      } finally {
+        setAutoLoading(false);
+      }
+    };
+    fetchAutoInsights();
+  }, [activeDatasetId, dataSource]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -296,6 +337,75 @@ export default function InsightsPage() {
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                   <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p>
+                </div>
+              )}
+
+              {/* Auto-Insights Section */}
+              {dataSource === 'server' && (autoLoading || autoInsights.length > 0) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-gray-50">Auto-Detected Insights</h2>
+                    <span className="text-[9px] bg-amber-50 dark:bg-amber-950/30 text-amber-600 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide">AI-FREE</span>
+                  </div>
+
+                  {autoLoading ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {[0, 1, 2].map(i => (
+                        <div key={i} className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 animate-pulse">
+                          <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                          <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2">
+                      {autoInsights.map((ai) => {
+                        const typeConfig = {
+                          anomaly:          { bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-100 dark:border-red-900/30', badgeBg: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', icon: AlertTriangle },
+                          trend:            { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-100 dark:border-blue-900/30', badgeBg: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300', icon: TrendingUp },
+                          correlation:      { bg: 'bg-violet-50 dark:bg-violet-950/20', border: 'border-violet-100 dark:border-violet-900/30', badgeBg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', icon: GitCompare },
+                          top_performer:    { bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/30', badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', icon: Trophy },
+                          bottom_performer: { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-100 dark:border-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', icon: ArrowDown },
+                        };
+                        const config = typeConfig[ai.type];
+                        const Icon = config.icon;
+                        return (
+                          <div key={ai.id} className={`p-4 rounded-xl border ${config.bg} ${config.border} transition-all hover:shadow-sm`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${config.badgeBg}`}>
+                                  <Icon className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">{ai.title}</h3>
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide ${config.badgeBg}`}>
+                                      {ai.type.replace('_', ' ')}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{ai.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{ai.icon}</span>
+                                <span className="text-sm font-bold text-gray-900 dark:text-gray-50">{ai.metric}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Divider if both sections visible */}
+              {dataSource === 'server' && autoInsights.length > 0 && insights.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
+                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">AI-Generated Insights</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
                 </div>
               )}
 
