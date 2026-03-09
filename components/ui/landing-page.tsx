@@ -9,10 +9,13 @@ import {
   ShieldCheck,
   Sparkles,
   Workflow,
+  Menu,
+  X,
 } from "lucide-react";
 import Hero from "@/components/ui/animated-shader-hero";
 import { LogoBadge } from "@/components/layout/LogoBadge";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useState } from "react";
 
 const features = [
   {
@@ -56,6 +59,7 @@ const features = [
 const LandingPage: React.FC = () => {
   const router = useRouter();
   const { setDemoUser, isAuthenticated } = useAuthStore();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleDemoAccess = () => {
     setDemoUser();
@@ -65,21 +69,22 @@ const LandingPage: React.FC = () => {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
       {/* Navigation */}
-      <nav className="fixed top-6 min-w-sm  left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 bg-black/20 backdrop-blur-lg border-3 border-blue-300 rounded-2xl shadow-2xl shadow-black/10">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-          <div className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-            <div className="mr-12 my-1 text-white">
-                      <LogoBadge size="md" showText />
+      <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-lg px-6 py-3 bg-white/20 backdrop-blur-lg border-3 border-blue-300 rounded-2xl shadow-2xl shadow-black/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="mr-4 text-white">
+              <LogoBadge size="md" showText />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          {/* desktop links */}
+          <div className="hidden md:flex items-center gap-2">
             {isAuthenticated ? (
               <span className="text-white font-medium">Signed in</span>
             ) : (
               <>
                 <button
                   onClick={() => router.push("/auth")}
-                  className="cursor-pointer px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors duration-300 hover:bg-white/10 rounded-lg backdrop-blur-sm"
+                  className="cursor-pointer px-4 py-2 text-sm font-medium text-black/80 hover:text-black transition-colors duration-300 hover:bg-white/10 rounded-lg backdrop-blur-sm"
                 >
                   Sign In
                 </button>
@@ -92,7 +97,43 @@ const LandingPage: React.FC = () => {
               </>
             )}
           </div>
+          {/* mobile menu button */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden text-white focus:outline-none"
+          >
+            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
+        {/* mobile menu items */}
+        {menuOpen && (
+          <div className="mt-3 flex flex-col gap-2 md:hidden">
+            {isAuthenticated ? (
+              <span className="text-white font-medium">Signed in</span>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    router.push("/auth");
+                    setMenuOpen(false);
+                  }}
+                  className="w-full text-left cursor-pointer px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors duration-300 hover:bg-white/10 rounded-lg backdrop-blur-sm"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    router.push("/auth");
+                    setMenuOpen(false);
+                  }}
+                  className="w-full text-left cursor-pointer px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500/80 to-cyan-500/80 hover:from-indigo-400 hover:to-cyan-400 rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/25 transform backdrop-blur-sm"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </nav>
 
       <Hero
